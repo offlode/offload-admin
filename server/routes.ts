@@ -3,6 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { seedDatabase } from "./seed";
 import crypto from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(crypto.scrypt);
 
 // ── In-memory session store ──────────────────────────────────────────────────
 interface Session {
@@ -20,8 +23,23 @@ function generateSessionId(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-function hashPassword(pw: string): string {
-  return crypto.createHash("sha256").update(pw).digest("hex");
+async function hashPassword(pw: string): Promise<string> {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derivedKey = (await scryptAsync(pw, salt, 64)) as Buffer;
+  return `${salt}:${derivedKey.toString("hex")}`;
+}
+
+async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+  // Support both new scrypt format (salt:hash) and legacy SHA-256 (64 hex chars)
+  if (stored.includes(":")) {
+    const [salt, hash] = stored.split(":");
+    const derivedKey = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return derivedKey.toString("hex") === hash;
+  } else {
+    // Legacy SHA-256 fallback for migration
+    const sha256 = crypto.createHash("sha256").update(supplied).digest("hex");
+    return sha256 === stored;
+  }
 }
 
 // Clean up expired sessions periodically
@@ -135,7 +153,7 @@ export async function registerRoutes(
   }
 
   // ── Auth endpoints (no requireAdmin) ─────────────────────────────────────
-  app.post("/api/auth/login", (req, res) => {
+  app.post("/api/auth/login", async (req, res) => {
     const ip =
       (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
       req.socket.remoteAddress ||
@@ -155,11 +173,22 @@ export async function registerRoutes(
     }
 
     const user = storage.getUserByUsername(username);
-    const hashedInput = hashPassword(password);
+    if (!user) {
+      res.status(401).json({ message: "Invalid credentials" });
+      return;
+    }
 
-    if (user && user.password === hashedInput) {
+    const passwordMatch = await comparePasswords(password, user.password);
+
+    if (passwordMatch) {
       // Successful login — reset rate limit
       resetRateLimit(ip);
+
+      // If legacy SHA-256 password, migrate to scrypt on successful login
+      if (!user.password.includes(":")) {
+        const newHash = await hashPassword(password);
+        storage.updateUser(user.id, { password: newHash });
+      }
 
       const sessionId = generateSessionId();
       sessions.set(sessionId, {

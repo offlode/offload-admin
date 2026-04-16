@@ -23,6 +23,7 @@ export interface IStorage {
   getUser(id: number): User | undefined;
   getUserByUsername(username: string): User | undefined;
   createUser(user: InsertUser): User;
+  updateUser(id: number, data: Partial<User>): User | undefined;
   // Customers
   getCustomers(): Customer[];
   getCustomer(id: number): Customer | undefined;
@@ -73,6 +74,9 @@ export class DatabaseStorage implements IStorage {
   }
   createUser(insertUser: InsertUser): User {
     return db.insert(users).values(insertUser).returning().get();
+  }
+  updateUser(id: number, data: Partial<User>): User | undefined {
+    return db.update(users).set(data).where(eq(users.id, id)).returning().get();
   }
 
   // Customers

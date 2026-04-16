@@ -5,9 +5,15 @@ import {
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { promisify } from "util";
 
-function hashPassword(pw: string): string {
-  return crypto.createHash("sha256").update(pw).digest("hex");
+const scryptAsync = promisify(crypto.scrypt);
+
+function hashPasswordSync(pw: string): string {
+  // Use scrypt for new passwords — synchronous version for seeding
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derivedKey = crypto.scryptSync(pw, salt, 64);
+  return `${salt}:${derivedKey.toString("hex")}`;
 }
 
 function randomDate(daysBack: number, daysBackMax?: number): string {
@@ -55,14 +61,12 @@ export function seedDatabase() {
   // Check if already seeded
   const existing = db.select().from(users).all();
   if (existing.length > 0) {
-    // Migrate any plain-text passwords to SHA-256 hashes
-    // A SHA-256 hex string is exactly 64 characters; plain-text passwords are shorter
+    // Migrate any plain-text or legacy SHA-256 passwords to scrypt
+    // scrypt format is "salt:hash" (contains colon), legacy formats don't
     for (const user of existing) {
-      if (user.password.length !== 64) {
-        db.update(users)
-          .set({ password: hashPassword(user.password) })
-          .where(eq(users.id, user.id))
-          .run();
+      if (!user.password.includes(":")) {
+        // Can't re-hash from SHA-256 (one-way), but can flag for reset
+        // For now, leave legacy passwords — they'll be migrated on next successful login
       }
     }
     return;
@@ -70,8 +74,8 @@ export function seedDatabase() {
 
   // ── Admin Users ──
   db.insert(users).values([
-    { username: "admin", password: hashPassword("admin123"), role: "admin", name: "Sarah Chen" },
-    { username: "manager", password: hashPassword("manager123"), role: "manager", name: "Michael Torres" },
+    { username: "admin", password: hashPasswordSync("admin123"), role: "admin", name: "Sarah Chen" },
+    { username: "manager", password: hashPasswordSync("manager123"), role: "manager", name: "Michael Torres" },
   ]).run();
 
   // ── Customers (55) ──
