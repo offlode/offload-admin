@@ -149,18 +149,52 @@ export default function SettingsPage() {
   );
 }
 
+function isRateField(label: string) {
+  const lower = label.toLowerCase();
+  return lower.includes('rate') || lower.includes('fee') || lower.includes('commission') || lower.includes('tax');
+}
+
 function SettingRow({ label, value, onSave }: { label: string; value: string; onSave: (v: string) => void }) {
-  const [val, setVal] = useState(value);
-  const changed = val !== value;
+  const isRate = isRateField(label);
+  const numericVal = parseFloat(value);
+  const showAsPercent = isRate && !isNaN(numericVal) && numericVal > 0 && numericVal < 1;
+
+  // Display as percentage, store as decimal
+  const displayValue = showAsPercent ? (numericVal * 100).toFixed(1) : value;
+  const [val, setVal] = useState(displayValue);
+  const changed = showAsPercent
+    ? parseFloat(val) !== numericVal * 100
+    : val !== value;
+
+  const handleSave = () => {
+    if (showAsPercent) {
+      const pctVal = parseFloat(val);
+      if (!isNaN(pctVal)) {
+        onSave((pctVal / 100).toString());
+      }
+    } else {
+      onSave(val);
+    }
+  };
 
   return (
     <div className="flex items-end gap-3">
       <div className="flex-1 space-y-1.5">
-        <Label className="text-xs">{label}</Label>
-        <Input value={val} onChange={e => setVal(e.target.value)} className="h-8" data-testid={`input-setting-${label.toLowerCase().replace(/\s/g, '-')}`} />
+        <Label className="text-xs">{label}{showAsPercent ? ' (%)' : ''}</Label>
+        <div className="relative">
+          <Input
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            className="h-8"
+            data-testid={`input-setting-${label.toLowerCase().replace(/\s/g, '-')}`}
+          />
+          {showAsPercent && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+          )}
+        </div>
       </div>
       {changed && (
-        <Button size="sm" onClick={() => onSave(val)} data-testid={`button-save-${label.toLowerCase().replace(/\s/g, '-')}`}>
+        <Button size="sm" onClick={handleSave} data-testid={`button-save-${label.toLowerCase().replace(/\s/g, '-')}`}>
           Save
         </Button>
       )}

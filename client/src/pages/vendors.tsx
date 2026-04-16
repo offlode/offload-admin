@@ -49,10 +49,13 @@ export default function VendorsPage() {
               <div className="grid grid-cols-3 gap-3 mb-3">
                 <div>
                   <p className="text-xs text-muted-foreground">Health</p>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" title={`${v.healthScore >= 80 ? 'Good' : v.healthScore >= 60 ? 'Fair' : 'Poor'} — composite of quality, speed & capacity`}>
                     <Activity className="h-3 w-3 text-muted-foreground" />
                     <span className={`text-sm font-semibold ${v.healthScore >= 80 ? 'text-green-500' : v.healthScore >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
                       {v.healthScore.toFixed(0)}
+                    </span>
+                    <span className={`text-[10px] font-medium ${v.healthScore >= 80 ? 'text-green-500' : v.healthScore >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
+                      {v.healthScore >= 80 ? 'Good' : v.healthScore >= 60 ? 'Fair' : 'Poor'}
                     </span>
                   </div>
                 </div>

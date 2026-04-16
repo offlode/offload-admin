@@ -99,7 +99,7 @@ export default function FinancialPage() {
                 formatter={(v: number) => formatCurrency(v)}
                 contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: 12 }}
               />
-              <Bar dataKey="revenue" fill="hsl(167, 100%, 39%)" radius={[4, 4, 0, 0]} name="Revenue" />
+              <Bar dataKey="revenue" fill="hsl(248, 51%, 53%)" radius={[4, 4, 0, 0]} name="Revenue" />
               <Bar dataKey="payouts" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} name="Payouts" />
             </BarChart>
           </ResponsiveContainer>

@@ -10,7 +10,7 @@ function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
 
-const COLORS = ["hsl(167, 100%, 39%)", "hsl(220, 70%, 50%)", "hsl(280, 60%, 50%)", "hsl(43, 74%, 49%)", "hsl(0, 70%, 55%)"];
+const COLORS = ["hsl(248, 51%, 53%)", "hsl(220, 70%, 50%)", "hsl(270, 95%, 75%)", "hsl(43, 74%, 49%)", "hsl(0, 70%, 55%)"];
 
 export default function AnalyticsPage() {
   const { data: analytics, isLoading } = useQuery<any>({ queryKey: ["/api/analytics/overview"] });
@@ -75,7 +75,7 @@ export default function AnalyticsPage() {
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} stroke="hsl(var(--muted-foreground))" width={50} />
                 <Tooltip formatter={(v: number) => [formatCurrency(v), "Revenue"]}
                   contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: 12 }} />
-                <Line type="monotone" dataKey="revenue" stroke="hsl(167, 100%, 39%)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="revenue" stroke="hsl(248, 51%, 53%)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="range" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                 <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: 12 }} />
-                <Bar dataKey="count" fill="hsl(167, 100%, 39%)" radius={[4, 4, 0, 0]} name="Customers" />
+                <Bar dataKey="count" fill="hsl(248, 51%, 53%)" radius={[4, 4, 0, 0]} name="Customers" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -174,7 +174,7 @@ export default function AnalyticsPage() {
                 <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
                 <Tooltip formatter={(v: number) => [`${(v * 100).toFixed(0)}%`, "Utilization"]}
                   contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: 12 }} />
-                <Bar dataKey="utilization" fill="hsl(167, 100%, 39%)" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="utilization" fill="hsl(248, 51%, 53%)" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

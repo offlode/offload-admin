@@ -3,6 +3,12 @@ import {
   users, customers, drivers, vendors, orders, orderStatusHistory,
   reviews, disputes, promoCodes, transactions, platformSettings, communicationLog,
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import crypto from "crypto";
+
+function hashPassword(pw: string): string {
+  return crypto.createHash("sha256").update(pw).digest("hex");
+}
 
 function randomDate(daysBack: number, daysBackMax?: number): string {
   const now = Date.now();
@@ -48,12 +54,24 @@ const disputeTypes = ["damaged", "missing", "late", "wrong_items", "overcharged"
 export function seedDatabase() {
   // Check if already seeded
   const existing = db.select().from(users).all();
-  if (existing.length > 0) return;
+  if (existing.length > 0) {
+    // Migrate any plain-text passwords to SHA-256 hashes
+    // A SHA-256 hex string is exactly 64 characters; plain-text passwords are shorter
+    for (const user of existing) {
+      if (user.password.length !== 64) {
+        db.update(users)
+          .set({ password: hashPassword(user.password) })
+          .where(eq(users.id, user.id))
+          .run();
+      }
+    }
+    return;
+  }
 
   // ── Admin Users ──
   db.insert(users).values([
-    { username: "admin", password: "admin123", role: "admin", name: "Sarah Chen" },
-    { username: "manager", password: "manager123", role: "manager", name: "Michael Torres" },
+    { username: "admin", password: hashPassword("admin123"), role: "admin", name: "Sarah Chen" },
+    { username: "manager", password: hashPassword("manager123"), role: "manager", name: "Michael Torres" },
   ]).run();
 
   // ── Customers (55) ──

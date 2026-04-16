@@ -11,7 +11,9 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, asc, like, and, gte, lte, sql, count } from "drizzle-orm";
 
-const sqlite = new Database("data.db");
+// Single source of truth: connect to the main customer app's database
+const dbPath = process.env.SHARED_DB_PATH || require("path").resolve(__dirname, "../../offload/data.db");
+const sqlite = new Database(dbPath);
 sqlite.pragma("journal_mode = WAL");
 
 export const db = drizzle(sqlite);

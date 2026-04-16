@@ -1,41 +1,226 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { seedDatabase } from "./seed";
+import crypto from "crypto";
+
+// ── In-memory session store ──────────────────────────────────────────────────
+interface Session {
+  userId: number;
+  username: string;
+  name: string;
+  role: string;
+  createdAt: number;
+}
+
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
+const sessions = new Map<string, Session>();
+
+function generateSessionId(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function hashPassword(pw: string): string {
+  return crypto.createHash("sha256").update(pw).digest("hex");
+}
+
+// Clean up expired sessions periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, session] of sessions.entries()) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
+      sessions.delete(id);
+    }
+  }
+}, 60 * 60 * 1000); // every hour
+
+// ── Rate limiting (login endpoint) ──────────────────────────────────────────
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX = 5; // max 5 attempts per window
+
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+const loginAttempts = new Map<string, RateLimitEntry>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    loginAttempts.set(ip, { count: 1, windowStart: now });
+    return true; // allowed
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false; // blocked
+  }
+  entry.count++;
+  return true; // allowed
+}
+
+function resetRateLimit(ip: string): void {
+  loginAttempts.delete(ip);
+}
+
+// Clean up old rate limit entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of loginAttempts.entries()) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, 15 * 60 * 1000);
+
+// ── Auth middleware ──────────────────────────────────────────────────────────
+const SESSION_COOKIE = "admin_session";
+
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  const sessionId =
+    req.cookies?.[SESSION_COOKIE] ||
+    (req.headers["x-session-id"] as string | undefined);
+
+  if (!sessionId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const session = sessions.get(sessionId);
+  if (!session) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+    sessions.delete(sessionId);
+    res.status(401).json({ message: "Session expired" });
+    return;
+  }
+
+  // Attach user info to request for downstream use
+  (req as any).adminUser = session;
+  next();
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Seed database on startup
-  seedDatabase();
+  // ── Security headers ─────────────────────────────────────────────────────
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
 
-  // ── Auth ──
+  // ── Cookie parser (simple, no external dep) ──────────────────────────────
+  app.use((req, _res, next) => {
+    const cookieHeader = req.headers.cookie || "";
+    const cookies: Record<string, string> = {};
+    cookieHeader.split(";").forEach((pair) => {
+      const [k, ...vs] = pair.trim().split("=");
+      if (k) cookies[k.trim()] = decodeURIComponent(vs.join("=").trim());
+    });
+    (req as any).cookies = cookies;
+    next();
+  });
+
+  // ── Seed database only if no admin user exists ───────────────────────────
+  if (process.env.NODE_ENV !== "production") {
+    seedDatabase();
+  } else {
+    // In production still seed if DB is empty (first run), but never re-seed
+    seedDatabase();
+  }
+
+  // ── Auth endpoints (no requireAdmin) ─────────────────────────────────────
   app.post("/api/auth/login", (req, res) => {
+    const ip =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      req.socket.remoteAddress ||
+      "unknown";
+
+    if (!checkRateLimit(ip)) {
+      res
+        .status(429)
+        .json({ message: "Too many login attempts. Please try again later." });
+      return;
+    }
+
     const { username, password } = req.body;
+    if (!username || !password) {
+      res.status(400).json({ message: "Username and password are required" });
+      return;
+    }
+
     const user = storage.getUserByUsername(username);
-    if (user && user.password === password) {
+    const hashedInput = hashPassword(password);
+
+    if (user && user.password === hashedInput) {
+      // Successful login — reset rate limit
+      resetRateLimit(ip);
+
+      const sessionId = generateSessionId();
+      sessions.set(sessionId, {
+        userId: user.id,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        createdAt: Date.now(),
+      });
+
+      // Set session cookie
+      res.setHeader(
+        "Set-Cookie",
+        `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`
+      );
+
       res.json({ id: user.id, username: user.username, name: user.name, role: user.role });
     } else {
       res.status(401).json({ message: "Invalid credentials" });
     }
   });
 
+  app.get("/api/auth/me", requireAdmin, (req, res) => {
+    const adminUser = (req as any).adminUser as Session;
+    res.json({
+      id: adminUser.userId,
+      username: adminUser.username,
+      name: adminUser.name,
+      role: adminUser.role,
+    });
+  });
+
+  app.post("/api/auth/logout", requireAdmin, (req, res) => {
+    const sessionId =
+      (req as any).cookies?.[SESSION_COOKIE] ||
+      (req.headers["x-session-id"] as string | undefined);
+    if (sessionId) {
+      sessions.delete(sessionId);
+    }
+    res.setHeader(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`
+    );
+    res.json({ success: true });
+  });
+
   // ── KPIs / Dashboard ──
-  app.get("/api/dashboard/kpis", (_req, res) => {
+  app.get("/api/dashboard/kpis", requireAdmin, (_req, res) => {
     res.json(storage.getKPIs());
   });
 
-  app.get("/api/dashboard/revenue", (req, res) => {
+  app.get("/api/dashboard/revenue", requireAdmin, (req, res) => {
     const days = parseInt(req.query.days as string) || 30;
     res.json(storage.getRevenueByDay(days));
   });
 
-  app.get("/api/dashboard/orders-by-status", (_req, res) => {
+  app.get("/api/dashboard/orders-by-status", requireAdmin, (_req, res) => {
     res.json(storage.getOrdersByStatus());
   });
 
-  app.get("/api/dashboard/recent-orders", (_req, res) => {
+  app.get("/api/dashboard/recent-orders", requireAdmin, (_req, res) => {
     const orders = storage.getRecentOrders(10);
     // Enrich with customer names
     const enriched = orders.map(o => {
@@ -47,68 +232,68 @@ export async function registerRoutes(
   });
 
   // ── Customers ──
-  app.get("/api/customers", (_req, res) => {
+  app.get("/api/customers", requireAdmin, (_req, res) => {
     res.json(storage.getCustomers());
   });
 
-  app.get("/api/customers/:id", (req, res) => {
+  app.get("/api/customers/:id", requireAdmin, (req, res) => {
     const customer = storage.getCustomer(parseInt(req.params.id));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     res.json(customer);
   });
 
-  app.patch("/api/customers/:id", (req, res) => {
+  app.patch("/api/customers/:id", requireAdmin, (req, res) => {
     const updated = storage.updateCustomer(parseInt(req.params.id), req.body);
     if (!updated) return res.status(404).json({ message: "Customer not found" });
     res.json(updated);
   });
 
-  app.get("/api/customers/:id/orders", (req, res) => {
+  app.get("/api/customers/:id/orders", requireAdmin, (req, res) => {
     const allOrders = storage.getOrders();
     const customerOrders = allOrders.filter(o => o.customerId === parseInt(req.params.id));
     res.json(customerOrders);
   });
 
-  app.get("/api/customers/:id/communications", (req, res) => {
+  app.get("/api/customers/:id/communications", requireAdmin, (req, res) => {
     res.json(storage.getCommunicationLog(parseInt(req.params.id)));
   });
 
   // ── Drivers ──
-  app.get("/api/drivers", (_req, res) => {
+  app.get("/api/drivers", requireAdmin, (_req, res) => {
     res.json(storage.getDrivers());
   });
 
-  app.get("/api/drivers/:id", (req, res) => {
+  app.get("/api/drivers/:id", requireAdmin, (req, res) => {
     const driver = storage.getDriver(parseInt(req.params.id));
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     res.json(driver);
   });
 
-  app.patch("/api/drivers/:id", (req, res) => {
+  app.patch("/api/drivers/:id", requireAdmin, (req, res) => {
     const updated = storage.updateDriver(parseInt(req.params.id), req.body);
     if (!updated) return res.status(404).json({ message: "Driver not found" });
     res.json(updated);
   });
 
   // ── Vendors ──
-  app.get("/api/vendors", (_req, res) => {
+  app.get("/api/vendors", requireAdmin, (_req, res) => {
     res.json(storage.getVendors());
   });
 
-  app.get("/api/vendors/:id", (req, res) => {
+  app.get("/api/vendors/:id", requireAdmin, (req, res) => {
     const vendor = storage.getVendor(parseInt(req.params.id));
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
     res.json(vendor);
   });
 
-  app.patch("/api/vendors/:id", (req, res) => {
+  app.patch("/api/vendors/:id", requireAdmin, (req, res) => {
     const updated = storage.updateVendor(parseInt(req.params.id), req.body);
     if (!updated) return res.status(404).json({ message: "Vendor not found" });
     res.json(updated);
   });
 
   // ── Orders ──
-  app.get("/api/orders", (_req, res) => {
+  app.get("/api/orders", requireAdmin, (_req, res) => {
     const allOrders = storage.getOrders();
     const enriched = allOrders.map(o => {
       const customer = storage.getCustomer(o.customerId);
@@ -124,7 +309,7 @@ export async function registerRoutes(
     res.json(enriched);
   });
 
-  app.get("/api/orders/:id", (req, res) => {
+  app.get("/api/orders/:id", requireAdmin, (req, res) => {
     const order = storage.getOrder(parseInt(req.params.id));
     if (!order) return res.status(404).json({ message: "Order not found" });
     const customer = storage.getCustomer(order.customerId);
@@ -140,19 +325,19 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/orders/:id", (req, res) => {
+  app.patch("/api/orders/:id", requireAdmin, (req, res) => {
     const updated = storage.updateOrder(parseInt(req.params.id), req.body);
     if (!updated) return res.status(404).json({ message: "Order not found" });
     res.json(updated);
   });
 
   // ── Reviews ──
-  app.get("/api/reviews", (_req, res) => {
+  app.get("/api/reviews", requireAdmin, (_req, res) => {
     res.json(storage.getReviews());
   });
 
   // ── Disputes ──
-  app.get("/api/disputes", (_req, res) => {
+  app.get("/api/disputes", requireAdmin, (_req, res) => {
     const allDisputes = storage.getDisputes();
     const enriched = allDisputes.map(d => {
       const customer = storage.getCustomer(d.customerId);
@@ -162,7 +347,7 @@ export async function registerRoutes(
     res.json(enriched);
   });
 
-  app.get("/api/disputes/:id", (req, res) => {
+  app.get("/api/disputes/:id", requireAdmin, (req, res) => {
     const dispute = storage.getDispute(parseInt(req.params.id));
     if (!dispute) return res.status(404).json({ message: "Dispute not found" });
     const customer = storage.getCustomer(dispute.customerId);
@@ -175,18 +360,18 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/disputes/:id", (req, res) => {
+  app.patch("/api/disputes/:id", requireAdmin, (req, res) => {
     const updated = storage.updateDispute(parseInt(req.params.id), req.body);
     if (!updated) return res.status(404).json({ message: "Dispute not found" });
     res.json(updated);
   });
 
   // ── Promo Codes ──
-  app.get("/api/promo-codes", (_req, res) => {
+  app.get("/api/promo-codes", requireAdmin, (_req, res) => {
     res.json(storage.getPromoCodes());
   });
 
-  app.post("/api/promo-codes", (req, res) => {
+  app.post("/api/promo-codes", requireAdmin, (req, res) => {
     try {
       const promo = storage.createPromoCode(req.body);
       res.json(promo);
@@ -195,29 +380,29 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/promo-codes/:id", (req, res) => {
+  app.patch("/api/promo-codes/:id", requireAdmin, (req, res) => {
     const updated = storage.updatePromoCode(parseInt(req.params.id), req.body);
     if (!updated) return res.status(404).json({ message: "Promo code not found" });
     res.json(updated);
   });
 
   // ── Transactions ──
-  app.get("/api/transactions", (_req, res) => {
+  app.get("/api/transactions", requireAdmin, (_req, res) => {
     res.json(storage.getTransactions());
   });
 
   // ── Settings ──
-  app.get("/api/settings", (_req, res) => {
+  app.get("/api/settings", requireAdmin, (_req, res) => {
     res.json(storage.getSettings());
   });
 
-  app.patch("/api/settings/:key", (req, res) => {
+  app.patch("/api/settings/:key", requireAdmin, (req, res) => {
     storage.updateSetting(req.params.key, req.body.value);
     res.json({ success: true });
   });
 
   // ── Analytics ──
-  app.get("/api/analytics/overview", (_req, res) => {
+  app.get("/api/analytics/overview", requireAdmin, (_req, res) => {
     const allOrders = storage.getOrders();
     const allCustomers = storage.getCustomers();
     const allDrivers = storage.getDrivers();

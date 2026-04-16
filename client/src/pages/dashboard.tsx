@@ -15,10 +15,10 @@ import { Link } from "wouter";
 const STATUS_COLORS: Record<string, string> = {
   pending: "hsl(43, 74%, 49%)",
   pickup_scheduled: "hsl(220, 70%, 50%)",
-  picked_up: "hsl(167, 100%, 39%)",
+  picked_up: "hsl(248, 51%, 53%)",
   at_vendor: "hsl(280, 60%, 50%)",
   processing: "hsl(200, 70%, 50%)",
-  ready: "hsl(167, 80%, 45%)",
+  ready: "hsl(270, 95%, 75%)",
   out_for_delivery: "hsl(30, 80%, 50%)",
   delivered: "hsl(140, 60%, 40%)",
   cancelled: "hsl(0, 70%, 50%)",
@@ -125,7 +125,7 @@ export default function Dashboard() {
                   />
                   <YAxis
                     tick={{ fontSize: 11 }}
-                    tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                    tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`}
                     stroke="hsl(var(--muted-foreground))"
                     width={50}
                   />
@@ -142,7 +142,7 @@ export default function Dashboard() {
                   <Line
                     type="monotone"
                     dataKey="revenue"
-                    stroke="hsl(167, 100%, 39%)"
+                    stroke="hsl(248, 51%, 53%)"
                     strokeWidth={2}
                     dot={false}
                     activeDot={{ r: 4 }}

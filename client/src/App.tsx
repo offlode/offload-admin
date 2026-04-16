@@ -50,7 +50,8 @@ function AppRouter() {
 }
 
 function AuthenticatedApp() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return null;
   if (!user) return <LoginPage />;
 
   const style = {
@@ -68,9 +69,7 @@ function AuthenticatedApp() {
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto">
-            <Router hook={useHashLocation}>
-              <AppRouter />
-            </Router>
+            <AppRouter />
           </main>
         </div>
       </div>
@@ -84,7 +83,9 @@ function App() {
       <TooltipProvider>
         <ThemeProvider>
           <AuthProvider>
-            <AuthenticatedApp />
+            <Router hook={useHashLocation}>
+              <AuthenticatedApp />
+            </Router>
           </AuthProvider>
         </ThemeProvider>
         <Toaster />
