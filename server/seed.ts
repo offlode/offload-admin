@@ -4,11 +4,8 @@ import {
   reviews, disputes, promoCodes, transactions, platformSettings, communicationLog,
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import crypto from "crypto";
+import { hashPasswordForStorage } from "./routes";
 
-function hashPassword(pw: string): string {
-  return crypto.createHash("sha256").update(pw).digest("hex");
-}
 
 function randomDate(daysBack: number, daysBackMax?: number): string {
   const now = Date.now();
@@ -55,23 +52,17 @@ export function seedDatabase() {
   // Check if already seeded
   const existing = db.select().from(users).all();
   if (existing.length > 0) {
-    // Migrate any plain-text passwords to SHA-256 hashes
-    // A SHA-256 hex string is exactly 64 characters; plain-text passwords are shorter
-    for (const user of existing) {
-      if (user.password.length !== 64) {
-        db.update(users)
-          .set({ password: hashPassword(user.password) })
-          .where(eq(users.id, user.id))
-          .run();
-      }
-    }
     return;
   }
 
   // ── Admin Users ──
+  // NOTE: In production, change these default credentials immediately after first login.
+  // These are seed-only defaults for development/first-run bootstrapping.
+  const adminPw = process.env.ADMIN_DEFAULT_PASSWORD || "admin123";
+  const managerPw = process.env.MANAGER_DEFAULT_PASSWORD || "manager123";
   db.insert(users).values([
-    { username: "admin", password: hashPassword("admin123"), role: "admin", name: "Sarah Chen" },
-    { username: "manager", password: hashPassword("manager123"), role: "manager", name: "Michael Torres" },
+    { username: "admin", password: hashPasswordForStorage(adminPw), role: "admin", name: "Sarah Chen" },
+    { username: "manager", password: hashPasswordForStorage(managerPw), role: "manager", name: "Michael Torres" },
   ]).run();
 
   // ── Customers (55) ──

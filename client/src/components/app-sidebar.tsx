@@ -13,16 +13,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Orders", url: "/orders", icon: ShoppingCart },
-  { title: "Customers", url: "/customers", icon: Users },
-  { title: "Drivers", url: "/drivers", icon: Truck },
-  { title: "Vendors", url: "/vendors", icon: Store },
-  { title: "Financial", url: "/financial", icon: DollarSign },
-  { title: "Disputes", url: "/disputes", icon: AlertTriangle },
-  { title: "Promos & Loyalty", url: "/promos", icon: Tag },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"] },
+  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ["admin", "manager"] },
+  { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager"] },
+  { title: "Drivers", url: "/drivers", icon: Truck, roles: ["admin", "manager"] },
+  { title: "Vendors", url: "/vendors", icon: Store, roles: ["admin", "manager"] },
+  { title: "Financial", url: "/financial", icon: DollarSign, roles: ["admin"] },
+  { title: "Disputes", url: "/disputes", icon: AlertTriangle, roles: ["admin", "manager"] },
+  { title: "Promos & Loyalty", url: "/promos", icon: Tag, roles: ["admin"] },
+  { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["admin", "manager"] },
+  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"] },
 ];
 
 export function AppSidebar() {
@@ -46,7 +46,9 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {navItems
+                .filter((item) => item.roles.includes(user?.role || ""))
+                .map((item) => {
                 const isActive = item.url === "/"
                   ? location === "/" || location === ""
                   : location.startsWith(item.url);
