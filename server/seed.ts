@@ -73,9 +73,11 @@ export function seedDatabase() {
   }
 
   // ── Admin Users ──
+  const randomAdminPw = crypto.randomBytes(32).toString("hex");
+  const randomManagerPw = crypto.randomBytes(32).toString("hex");
   db.insert(users).values([
-    { username: "admin", password: hashPasswordSync("admin123"), role: "admin", name: "Sarah Chen" },
-    { username: "manager", password: hashPasswordSync("manager123"), role: "manager", name: "Michael Torres" },
+    { username: "chaimfischer2@gmail.com", password: hashPasswordSync(randomAdminPw), role: "admin", name: "Chaim Fischer" },
+    { username: "manager", password: hashPasswordSync(randomManagerPw), role: "manager", name: "Michael Torres" },
   ]).run();
 
   // ── Customers (55) ──
@@ -405,4 +407,44 @@ export function seedDatabase() {
   db.insert(communicationLog).values(commData).run();
 
   console.log("Database seeded successfully!");
+}
+
+/**
+ * Ensures the super admin (chaimfischer2@gmail.com) exists in the database.
+ * Runs on every startup — creates the user if missing, or updates if the
+ * old "admin" account still exists from a previous seed.
+ */
+export function ensureSuperAdmin() {
+  const superAdminUsername = "chaimfischer2@gmail.com";
+
+  // Check if super admin already exists
+  const existing = db.select().from(users).where(eq(users.username, superAdminUsername)).all();
+  if (existing.length > 0) return;
+
+  // Check if old "admin" user exists and upgrade it
+  const oldAdmin = db.select().from(users).where(eq(users.username, "admin")).all();
+  if (oldAdmin.length > 0) {
+    const randomPw = crypto.randomBytes(32).toString("hex");
+    db.update(users)
+      .set({
+        username: superAdminUsername,
+        name: "Chaim Fischer",
+        role: "admin",
+        password: hashPasswordSync(randomPw),
+      })
+      .where(eq(users.username, "admin"))
+      .run();
+    console.log("Upgraded old admin account to super admin: chaimfischer2@gmail.com");
+    return;
+  }
+
+  // Neither exists — create fresh
+  const randomPw = crypto.randomBytes(32).toString("hex");
+  db.insert(users).values({
+    username: superAdminUsername,
+    password: hashPasswordSync(randomPw),
+    role: "admin",
+    name: "Chaim Fischer",
+  }).run();
+  console.log("Created super admin: chaimfischer2@gmail.com");
 }

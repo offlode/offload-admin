@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider, ThemeToggle } from "@/components/theme-provider";
 import { AuthProvider, useAuth } from "@/components/auth-provider";
 import LoginPage from "@/pages/login";
+import ResetPasswordPage from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import OrdersPage from "@/pages/orders";
 import OrderDetailPage from "@/pages/order-detail";
@@ -51,6 +52,13 @@ function AppRouter() {
 
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
+
+  // Reset-password page is accessible without auth
+  const hash = typeof window !== "undefined" ? window.location.hash : "";
+  if (hash.startsWith("#/reset-password")) {
+    return <ResetPasswordPage />;
+  }
+
   if (loading) return null;
   if (!user) return <LoginPage />;
 

@@ -1,6 +1,7 @@
 import {
   users, customers, drivers, vendors, orders, orderStatusHistory,
   reviews, disputes, promoCodes, transactions, platformSettings, communicationLog,
+  passwordResetTokens,
   type User, type InsertUser, type Customer, type InsertCustomer,
   type Driver, type InsertDriver, type Vendor, type InsertVendor,
   type Order, type InsertOrder, type Dispute, type InsertDispute,
@@ -15,6 +16,18 @@ import { eq, desc, asc, like, and, gte, lte, sql, count } from "drizzle-orm";
 const dbPath = process.env.SHARED_DB_PATH || require("path").resolve(__dirname, "../../offload/data.db");
 const sqlite = new Database(dbPath);
 sqlite.pragma("journal_mode = WAL");
+
+// Ensure password_reset_tokens table exists (migration-safe)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL
+  )
+`);
 
 export const db = drizzle(sqlite);
 
@@ -63,6 +76,13 @@ export interface IStorage {
   getKPIs(): any;
   getRevenueByDay(days: number): any[];
   getOrdersByStatus(): any[];
+  // Password Reset Tokens
+  createPasswordResetToken(userId: number, token: string, expiresAt: string): any;
+  getPasswordResetToken(token: string): any | undefined;
+  markPasswordResetTokenUsed(token: string): void;
+  cleanExpiredResetTokens(): void;
+  // User lookup by username (for forgot-password accepting email or username)
+  getAllUsers(): User[];
 }
 
 export class DatabaseStorage implements IStorage {
@@ -242,6 +262,41 @@ export class DatabaseStorage implements IStorage {
       statusMap[order.status] = (statusMap[order.status] || 0) + 1;
     }
     return Object.entries(statusMap).map(([status, count]) => ({ status, count }));
+  }
+
+  // Password Reset Tokens
+  createPasswordResetToken(userId: number, token: string, expiresAt: string): any {
+    return db.insert(passwordResetTokens).values({
+      userId,
+      token,
+      expiresAt,
+      createdAt: new Date().toISOString(),
+    }).returning().get();
+  }
+
+  getPasswordResetToken(token: string): any | undefined {
+    return db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token)).get();
+  }
+
+  markPasswordResetTokenUsed(token: string): void {
+    db.update(passwordResetTokens)
+      .set({ usedAt: new Date().toISOString() })
+      .where(eq(passwordResetTokens.token, token))
+      .run();
+  }
+
+  cleanExpiredResetTokens(): void {
+    const now = new Date().toISOString();
+    db.delete(passwordResetTokens)
+      .where(and(
+        lte(passwordResetTokens.expiresAt, now),
+        sql`${passwordResetTokens.usedAt} IS NOT NULL OR ${passwordResetTokens.expiresAt} < ${now}`
+      ))
+      .run();
+  }
+
+  getAllUsers(): User[] {
+    return db.select().from(users).all();
   }
 }
 

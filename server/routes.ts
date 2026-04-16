@@ -1,9 +1,10 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { seedDatabase } from "./seed";
+import { seedDatabase, ensureSuperAdmin } from "./seed";
 import crypto from "crypto";
 import { promisify } from "util";
+import { Resend } from "resend";
 
 const scryptAsync = promisify(crypto.scrypt);
 
@@ -88,7 +89,33 @@ setInterval(() => {
       loginAttempts.delete(ip);
     }
   }
+  for (const [ip, entry] of forgotPasswordAttempts.entries()) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+      forgotPasswordAttempts.delete(ip);
+    }
+  }
 }, 15 * 60 * 1000);
+
+// ── Rate limiting (forgot-password endpoint) ──────────────────────────────
+const FORGOT_PW_RATE_LIMIT_MAX = 3; // 3 requests per 15 min per IP
+const forgotPasswordAttempts = new Map<string, RateLimitEntry>();
+
+function checkForgotPasswordRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = forgotPasswordAttempts.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    forgotPasswordAttempts.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= FORGOT_PW_RATE_LIMIT_MAX) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
+// ── Resend email client ───────────────────────────────────────────────────
+const resend = new Resend(process.env.RESEND_API_KEY || "re_WRb6SKUJ_GCVu86o6Ju8qJPa39usgsKfz");
 
 // ── Auth middleware ──────────────────────────────────────────────────────────
 const SESSION_COOKIE = "admin_session";
@@ -144,13 +171,9 @@ export async function registerRoutes(
     next();
   });
 
-  // ── Seed database only if no admin user exists ───────────────────────────
-  if (process.env.NODE_ENV !== "production") {
-    seedDatabase();
-  } else {
-    // In production still seed if DB is empty (first run), but never re-seed
-    seedDatabase();
-  }
+  // ── Seed database ────────────────────────────────────────────────────────
+  seedDatabase();
+  ensureSuperAdmin();
 
   // ── Auth endpoints (no requireAdmin) ─────────────────────────────────────
   app.post("/api/auth/login", async (req, res) => {
@@ -233,6 +256,120 @@ export async function registerRoutes(
       `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`
     );
     res.json({ success: true });
+  });
+
+  // ── Forgot Password ────────────────────────────────────────────────────
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const ip =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      req.socket.remoteAddress ||
+      "unknown";
+
+    if (!checkForgotPasswordRateLimit(ip)) {
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    const { identifier } = req.body; // accepts email or username
+    if (!identifier) {
+      // Still return 200 to not leak info
+      res.json({ message: "If an account with that email/username exists, a password reset link has been sent." });
+      return;
+    }
+
+    // Look up user by username (which may be an email)
+    const allUsers = storage.getAllUsers();
+    const user = allUsers.find(
+      (u) => u.username.toLowerCase() === identifier.toLowerCase()
+    );
+
+    if (user) {
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+      storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      // Build reset link (relative, works with any deployed URL)
+      const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:5000";
+      const protocol = req.headers["x-forwarded-proto"] || "http";
+      const resetUrl = `${protocol}://${host}/#/reset-password?token=${token}`;
+
+      try {
+        await resend.emails.send({
+          from: "Offload Admin <notifications@offloadusa.com>",
+          to: [user.username], // username is the email
+          subject: "Reset your Offload Admin password",
+          html: `
+            <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+              <div style="text-align: center; margin-bottom: 32px;">
+                <div style="display: inline-block; background: #5B4BC4; border-radius: 12px; width: 48px; height: 48px; line-height: 48px; text-align: center;">
+                  <span style="color: white; font-size: 24px; font-weight: bold;">O</span>
+                </div>
+                <h1 style="color: #1a1a1a; font-size: 22px; margin: 16px 0 0; font-weight: 600;">Offload Admin</h1>
+              </div>
+              <p style="color: #333; font-size: 15px; line-height: 1.6;">Hi ${user.name},</p>
+              <p style="color: #333; font-size: 15px; line-height: 1.6;">We received a request to reset your password. Click the button below to choose a new one:</p>
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${resetUrl}" style="display: inline-block; background: #5B4BC4; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 15px; font-weight: 500;">Reset Password</a>
+              </div>
+              <p style="color: #666; font-size: 13px; line-height: 1.6;">This link expires in <strong>1 hour</strong>. If you didn't request this, you can safely ignore this email.</p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+              <p style="color: #999; font-size: 12px; text-align: center;">Offload &mdash; On-demand laundry, delivered.</p>
+            </div>
+          `,
+        });
+      } catch (e) {
+        console.error("Failed to send password reset email:", e);
+      }
+    }
+
+    // Always return 200 (don't leak whether account exists)
+    res.json({ message: "If an account with that email/username exists, a password reset link has been sent." });
+  });
+
+  // ── Reset Password ────────────────────────────────────────────────────
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      res.status(400).json({ message: "Token and password are required." });
+      return;
+    }
+
+    if (password.length < 8) {
+      res.status(400).json({ message: "Password must be at least 8 characters." });
+      return;
+    }
+
+    const resetToken = storage.getPasswordResetToken(token);
+
+    if (!resetToken) {
+      res.status(400).json({ message: "Invalid or expired reset link." });
+      return;
+    }
+
+    if (resetToken.usedAt) {
+      res.status(400).json({ message: "This reset link has already been used." });
+      return;
+    }
+
+    if (new Date(resetToken.expiresAt) < new Date()) {
+      res.status(400).json({ message: "This reset link has expired." });
+      return;
+    }
+
+    const hashedPassword = await hashPassword(password);
+    storage.updateUser(resetToken.userId, { password: hashedPassword });
+    storage.markPasswordResetTokenUsed(token);
+
+    // Invalidate all sessions for this user
+    for (const [sessionId, session] of sessions.entries()) {
+      if (session.userId === resetToken.userId) {
+        sessions.delete(sessionId);
+      }
+    }
+
+    res.json({ message: "Password has been reset successfully. You can now log in." });
   });
 
   // ── KPIs / Dashboard ──
