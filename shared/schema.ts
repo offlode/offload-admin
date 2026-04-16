@@ -9,11 +9,22 @@ export const users = sqliteTable("users", {
   password: text("password").notNull(),
   role: text("role").notNull().default("admin"),
   name: text("name").notNull().default("Admin"),
+  email: text("email"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// ── Password Reset Tokens ──
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  createdAt: text("created_at").notNull(),
+});
 
 // ── Customers ──
 export const customers = sqliteTable("customers", {
@@ -222,12 +233,3 @@ export const communicationLog = sqliteTable("communication_log", {
 
 export type CommunicationLogEntry = typeof communicationLog.$inferSelect;
 
-// ── Password Reset Tokens ──
-export const passwordResetTokens = sqliteTable("password_reset_tokens", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull(),
-  token: text("token").notNull().unique(),
-  expiresAt: text("expires_at").notNull(),
-  usedAt: text("used_at"),
-  createdAt: text("created_at").notNull(),
-});

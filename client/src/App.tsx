@@ -9,6 +9,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider, ThemeToggle } from "@/components/theme-provider";
 import { AuthProvider, useAuth } from "@/components/auth-provider";
 import LoginPage from "@/pages/login";
+import ForgotPasswordPage from "@/pages/forgot-password";
+
 import ResetPasswordPage from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import OrdersPage from "@/pages/orders";
@@ -60,7 +62,14 @@ function AuthenticatedApp() {
   }
 
   if (loading) return null;
-  if (!user) return <LoginPage />;
+
+  // Public routes accessible without login
+  if (!user) {
+    const hash = window.location.hash;
+    if (hash.startsWith("#/forgot-password")) return <ForgotPasswordPage />;
+    if (hash.startsWith("#/reset-password")) return <ResetPasswordPage />;
+    return <LoginPage />;
+  }
 
   const style = {
     "--sidebar-width": "16rem",

@@ -173,7 +173,8 @@ export default function LoginPage() {
                 data-testid="input-username"
                 value={username}
                 onChange={(e) => { setUsername(e.target.value); setError(""); }}
-                placeholder="you@example.com"
+                placeholder="you@email.com"
+
                 autoComplete="username"
                 className={error ? "border-red-500/50" : ""}
               />
@@ -204,6 +205,18 @@ export default function LoginPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Sign In
             </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                data-testid="link-forgot-password"
+                className="text-sm text-primary hover:text-primary/80 transition-colors"
+                onClick={() => { window.location.hash = "#/forgot-password"; }}
+              >
+                Forgot password?
+              </button>
+            </div>
+
           </form>
         </CardContent>
       </Card>

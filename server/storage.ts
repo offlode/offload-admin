@@ -264,18 +264,21 @@ export class DatabaseStorage implements IStorage {
     return Object.entries(statusMap).map(([status, count]) => ({ status, count }));
   }
 
-  // Password Reset Tokens
-  createPasswordResetToken(userId: number, token: string, expiresAt: string): any {
-    return db.insert(passwordResetTokens).values({
+  // ── Password Reset Tokens ──
+  getUserByEmail(email: string): User | undefined {
+    return db.select().from(users).where(eq(users.email, email)).get();
+  }
+  createPasswordResetToken(userId: number, token: string, expiresAt: string): void {
+    db.insert(passwordResetTokens).values({
+
       userId,
       token,
       expiresAt,
       createdAt: new Date().toISOString(),
-    }).returning().get();
+    }).run();
   }
-
-  getPasswordResetToken(token: string): any | undefined {
-    return db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token)).get();
+  getPasswordResetToken(token: string): { userId: number; token: string; expiresAt: string; usedAt: string | null } | undefined {
+    return db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token)).get() as any;
   }
 
   markPasswordResetTokenUsed(token: string): void {
@@ -285,19 +288,6 @@ export class DatabaseStorage implements IStorage {
       .run();
   }
 
-  cleanExpiredResetTokens(): void {
-    const now = new Date().toISOString();
-    db.delete(passwordResetTokens)
-      .where(and(
-        lte(passwordResetTokens.expiresAt, now),
-        sql`${passwordResetTokens.usedAt} IS NOT NULL OR ${passwordResetTokens.expiresAt} < ${now}`
-      ))
-      .run();
-  }
-
-  getAllUsers(): User[] {
-    return db.select().from(users).all();
-  }
 }
 
 export const storage = new DatabaseStorage();

@@ -195,7 +195,8 @@ export async function registerRoutes(
       return;
     }
 
-    const user = storage.getUserByUsername(username);
+    // Support login by email or username
+    const user = storage.getUserByUsername(username) || storage.getUserByEmail(username);
     if (!user) {
       res.status(401).json({ message: "Invalid credentials" });
       return;
@@ -258,118 +259,85 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  // ── Forgot Password ────────────────────────────────────────────────────
-  app.post("/api/auth/forgot-password", async (req, res) => {
-    const ip =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.socket.remoteAddress ||
-      "unknown";
-
-    if (!checkForgotPasswordRateLimit(ip)) {
-      res.status(429).json({ message: "Too many requests. Please try again later." });
-      return;
+  // ── Forgot Password (public, no requireAdmin) ──
+  const forgotPwLimits = new Map<string, { count: number; resetAt: number }>();
+  app.post("/api/auth/forgot-password", (req, res) => {
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    const limit = forgotPwLimits.get(ip);
+    if (limit && now < limit.resetAt && limit.count >= 3) {
+      return res.status(429).json({ message: "Too many requests. Please try again later." });
+    }
+    if (!limit || now >= limit.resetAt) {
+      forgotPwLimits.set(ip, { count: 1, resetAt: now + 900000 });
+    } else {
+      limit.count++;
     }
 
-    const { identifier } = req.body; // accepts email or username
-    if (!identifier) {
-      // Still return 200 to not leak info
-      res.json({ message: "If an account with that email/username exists, a password reset link has been sent." });
-      return;
-    }
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
 
-    // Look up user by username (which may be an email)
-    const allUsers = storage.getAllUsers();
-    const user = allUsers.find(
-      (u) => u.username.toLowerCase() === identifier.toLowerCase()
-    );
+    const successMsg = { message: "If an account with that email exists, a password reset link has been sent." };
 
-    if (user) {
-      const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+    // Look up by email or username
+    const user = storage.getUserByEmail(email) || storage.getUserByUsername(email);
+    if (!user) return res.json(successMsg);
 
-      storage.createPasswordResetToken(user.id, token, expiresAt);
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 3600000).toISOString();
+    storage.createPasswordResetToken(user.id, token, expiresAt);
 
-      // Build reset link (relative, works with any deployed URL)
-      const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:5000";
-      const protocol = req.headers["x-forwarded-proto"] || "http";
-      const resetUrl = `${protocol}://${host}/#/reset-password?token=${token}`;
-
+    if (process.env.RESEND_API_KEY) {
       try {
-        await resend.emails.send({
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const resetUrl = `${req.protocol}://${req.get("host")}/#/reset-password?token=${token}`;
+        resend.emails.send({
           from: "Offload Admin <notifications@offloadusa.com>",
-          to: [user.username], // username is the email
+          to: user.email || email,
           subject: "Reset your Offload Admin password",
-          html: `
-            <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
-              <div style="text-align: center; margin-bottom: 32px;">
-                <div style="display: inline-block; background: #5B4BC4; border-radius: 12px; width: 48px; height: 48px; line-height: 48px; text-align: center;">
-                  <span style="color: white; font-size: 24px; font-weight: bold;">O</span>
-                </div>
-                <h1 style="color: #1a1a1a; font-size: 22px; margin: 16px 0 0; font-weight: 600;">Offload Admin</h1>
-              </div>
-              <p style="color: #333; font-size: 15px; line-height: 1.6;">Hi ${user.name},</p>
-              <p style="color: #333; font-size: 15px; line-height: 1.6;">We received a request to reset your password. Click the button below to choose a new one:</p>
-              <div style="text-align: center; margin: 32px 0;">
-                <a href="${resetUrl}" style="display: inline-block; background: #5B4BC4; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 15px; font-weight: 500;">Reset Password</a>
-              </div>
-              <p style="color: #666; font-size: 13px; line-height: 1.6;">This link expires in <strong>1 hour</strong>. If you didn't request this, you can safely ignore this email.</p>
-              <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
-              <p style="color: #999; font-size: 12px; text-align: center;">Offload &mdash; On-demand laundry, delivered.</p>
+          html: `<div style="font-family:Inter,Arial,sans-serif;max-width:500px;margin:0 auto;padding:32px;">
+            <h1 style="color:#5B4BC4;font-size:24px;text-align:center;">Offload Admin</h1>
+            <h2 style="color:#1A1A1A;font-size:18px;">Reset your password</h2>
+            <p style="color:#555;font-size:14px;">Click below to reset your password:</p>
+            <div style="text-align:center;margin:28px 0;">
+              <a href="${resetUrl}" style="background:#5B4BC4;color:#fff;padding:12px 32px;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Reset Password</a>
             </div>
-          `,
-        });
+            <p style="color:#888;font-size:12px;">This link expires in 1 hour.</p>
+          </div>`,
+        }).then(() => console.log(`[Email] Admin password reset sent to ${user.email || email}`))
+          .catch((err: any) => console.error(`[Email] Failed:`, err));
       } catch (e) {
-        console.error("Failed to send password reset email:", e);
+        console.log(`[Email] Resend not available`);
       }
+    } else {
+      console.log(`[Email] Would send admin password reset to ${user.email || email} (no RESEND_API_KEY)`);
     }
 
-    // Always return 200 (don't leak whether account exists)
-    res.json({ message: "If an account with that email/username exists, a password reset link has been sent." });
+    res.json(successMsg);
   });
 
-  // ── Reset Password ────────────────────────────────────────────────────
+  // ── Reset Password (public) ──
   app.post("/api/auth/reset-password", async (req, res) => {
     const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ message: "Token and new password are required" });
+    if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
 
-    if (!token || !password) {
-      res.status(400).json({ message: "Token and password are required." });
-      return;
-    }
+    const resetRecord = storage.getPasswordResetToken(token);
+    if (!resetRecord) return res.status(400).json({ message: "Invalid or expired reset link." });
+    if (resetRecord.usedAt) return res.status(400).json({ message: "This link has already been used." });
+    if (new Date(resetRecord.expiresAt) < new Date()) return res.status(400).json({ message: "This link has expired." });
 
-    if (password.length < 8) {
-      res.status(400).json({ message: "Password must be at least 8 characters." });
-      return;
-    }
-
-    const resetToken = storage.getPasswordResetToken(token);
-
-    if (!resetToken) {
-      res.status(400).json({ message: "Invalid or expired reset link." });
-      return;
-    }
-
-    if (resetToken.usedAt) {
-      res.status(400).json({ message: "This reset link has already been used." });
-      return;
-    }
-
-    if (new Date(resetToken.expiresAt) < new Date()) {
-      res.status(400).json({ message: "This reset link has expired." });
-      return;
-    }
-
-    const hashedPassword = await hashPassword(password);
-    storage.updateUser(resetToken.userId, { password: hashedPassword });
+    const newHash = await hashPassword(password);
+    storage.updateUser(resetRecord.userId, { password: newHash });
     storage.markPasswordResetTokenUsed(token);
 
     // Invalidate all sessions for this user
-    for (const [sessionId, session] of sessions.entries()) {
-      if (session.userId === resetToken.userId) {
-        sessions.delete(sessionId);
-      }
+    for (const [sid, sess] of sessions.entries()) {
+      if (sess.userId === resetRecord.userId) sessions.delete(sid);
     }
 
-    res.json({ message: "Password has been reset successfully. You can now log in." });
+    res.json({ message: "Password has been reset. You can now log in." });
+
   });
 
   // ── KPIs / Dashboard ──
