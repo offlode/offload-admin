@@ -206,16 +206,7 @@ export default function LoginPage() {
               Sign In
             </Button>
 
-            <div className="text-center">
-              <button
-                type="button"
-                data-testid="link-forgot-password"
-                className="text-sm text-primary hover:text-primary/80 transition-colors"
-                onClick={() => { window.location.hash = "#/forgot-password"; }}
-              >
-                Forgot password?
-              </button>
-            </div>
+
 
           </form>
         </CardContent>
