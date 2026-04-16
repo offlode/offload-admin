@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { seedDatabase } from "./seed";
 import crypto from "crypto";
+import { z } from "zod";
 
 // ── In-memory session store ──────────────────────────────────────────────────
 interface Session {
@@ -20,18 +21,39 @@ function generateSessionId(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-function hashPassword(pw: string): string {
-  return crypto.createHash("sha256").update(pw).digest("hex");
+// Use scrypt (Node.js built-in) instead of SHA-256 for password hashing
+const SCRYPT_KEYLEN = 64;
+
+function hashPassword(pw: string, salt?: string): { hash: string; salt: string } {
+  const useSalt = salt || crypto.randomBytes(16).toString("hex");
+  const derived = crypto.scryptSync(pw, useSalt, SCRYPT_KEYLEN);
+  return { hash: derived.toString("hex"), salt: useSalt };
+}
+
+function verifyPassword(pw: string, storedHash: string): boolean {
+  // Support legacy SHA-256 hashes (64 hex chars, no colon separator)
+  if (!storedHash.includes(":")) {
+    const legacySha = crypto.createHash("sha256").update(pw).digest("hex");
+    return crypto.timingSafeEqual(Buffer.from(legacySha, "hex"), Buffer.from(storedHash, "hex"));
+  }
+  const [salt, hash] = storedHash.split(":");
+  const { hash: computed } = hashPassword(pw, salt);
+  return crypto.timingSafeEqual(Buffer.from(computed, "hex"), Buffer.from(hash, "hex"));
+}
+
+export function hashPasswordForStorage(pw: string): string {
+  const { hash, salt } = hashPassword(pw);
+  return `${salt}:${hash}`;
 }
 
 // Clean up expired sessions periodically
 setInterval(() => {
   const now = Date.now();
-  for (const [id, session] of sessions.entries()) {
+  sessions.forEach((session, id) => {
     if (now - session.createdAt > SESSION_TTL_MS) {
       sessions.delete(id);
     }
-  }
+  });
 }, 60 * 60 * 1000); // every hour
 
 // ── Rate limiting (login endpoint) ──────────────────────────────────────────
@@ -65,12 +87,41 @@ function resetRateLimit(ip: string): void {
 // Clean up old rate limit entries
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, entry] of loginAttempts.entries()) {
+  loginAttempts.forEach((entry, ip) => {
     if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
       loginAttempts.delete(ip);
     }
-  }
+  });
 }, 15 * 60 * 1000);
+
+// ── Audit logging ───────────────────────────────────────────────────────────
+function auditLog(adminUser: Session | null, action: string, details: Record<string, unknown> = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    adminId: adminUser?.userId ?? null,
+    adminUsername: adminUser?.username ?? "anonymous",
+    action,
+    ...details,
+  };
+  // In production, this would write to a persistent audit table or log service.
+  // For now, structured console log that can be piped to a log aggregator.
+  console.log(`[AUDIT] ${JSON.stringify(entry)}`);
+}
+
+// ── PII masking helpers ─────────────────────────────────────────────────────
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***@***";
+  const visibleChars = Math.min(2, local.length);
+  return `${local.slice(0, visibleChars)}***@${domain}`;
+}
+
+function maskPhone(phone: string): string {
+  // Show last 4 digits only: (415) ***-1234
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 4) return "***";
+  return `***-${digits.slice(-4)}`;
+}
 
 // ── Auth middleware ──────────────────────────────────────────────────────────
 const SESSION_COOKIE = "admin_session";
@@ -102,6 +153,105 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+// Role-based access: only admin role can access sensitive operations
+function requireRole(...allowedRoles: string[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const adminUser = (req as any).adminUser as Session | undefined;
+    if (!adminUser || !allowedRoles.includes(adminUser.role)) {
+      res.status(403).json({ message: "Forbidden: insufficient permissions" });
+      return;
+    }
+    next();
+  };
+}
+
+// ── Zod validation schemas for mutation endpoints ───────────────────────────
+const updateCustomerSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(5).max(20).optional(),
+  address: z.string().min(1).max(500).optional(),
+  zipCode: z.string().regex(/^\d{5}$/).optional(),
+  tier: z.enum(["standard", "silver", "gold", "platinum"]).optional(),
+  status: z.enum(["active", "inactive", "churned"]).optional(),
+  notes: z.string().max(2000).optional(),
+  subscriptionType: z.enum(["weekly", "biweekly", "monthly"]).nullable().optional(),
+}).strict();
+
+const updateDriverSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  status: z.enum(["available", "busy", "offline"]).optional(),
+  payoutRate: z.number().min(0).max(100).optional(),
+}).strict();
+
+const updateVendorSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  status: z.enum(["active", "suspended", "pending"]).optional(),
+  address: z.string().min(1).max(500).optional(),
+  phone: z.string().min(5).max(20).optional(),
+  email: z.string().email().optional(),
+  operatingHours: z.string().max(50).optional(),
+  capacity: z.number().int().min(1).max(1000).optional(),
+}).strict();
+
+const updateOrderSchema = z.object({
+  status: z.enum(["pending", "pickup_scheduled", "picked_up", "at_vendor", "processing", "ready", "out_for_delivery", "delivered", "cancelled"]).optional(),
+  driverId: z.number().int().positive().optional(),
+  vendorId: z.number().int().positive().optional(),
+  notes: z.string().max(2000).optional(),
+}).strict();
+
+const updateDisputeSchema = z.object({
+  status: z.enum(["open", "investigating", "resolved", "escalated"]).optional(),
+  priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+  resolution: z.enum(["credit", "refund", "partial_refund", "deny"]).nullable().optional(),
+  resolutionAmount: z.number().min(0).max(10000).optional(),
+  resolutionNote: z.string().max(2000).optional(),
+  resolvedAt: z.string().optional(),
+}).strict();
+
+const createPromoCodeSchema = z.object({
+  code: z.string().min(2).max(30).regex(/^[A-Z0-9_]+$/),
+  description: z.string().min(1).max(500),
+  discountType: z.enum(["percentage", "fixed"]),
+  discountValue: z.number().positive().max(100),
+  minOrderAmount: z.number().min(0).optional(),
+  maxUses: z.number().int().positive().nullable().optional(),
+  currentUses: z.number().int().min(0).optional(),
+  status: z.enum(["active", "inactive", "expired"]).optional(),
+  expiresAt: z.string().nullable().optional(),
+  createdAt: z.string().optional(),
+}).strict();
+
+const updatePromoCodeSchema = z.object({
+  description: z.string().min(1).max(500).optional(),
+  discountValue: z.number().positive().max(100).optional(),
+  minOrderAmount: z.number().min(0).optional(),
+  maxUses: z.number().int().positive().nullable().optional(),
+  status: z.enum(["active", "inactive", "expired"]).optional(),
+  expiresAt: z.string().nullable().optional(),
+}).strict();
+
+const updateSettingSchema = z.object({
+  value: z.string().min(1).max(200),
+}).strict();
+
+// Helper to safely extract a route param (Express 5 types return string | string[])
+function paramStr(val: string | string[] | undefined): string {
+  return Array.isArray(val) ? val[0] : val || "";
+}
+
+// Helper to validate request body
+function validateBody<T>(schema: z.ZodSchema<T>, req: Request, res: Response): T | null {
+  const result = schema.safeParse(req.body);
+  if (!result.success) {
+    const errors = result.error.errors.map(e => `${e.path.join(".")}: ${e.message}`);
+    res.status(400).json({ message: "Validation failed", errors });
+    return null;
+  }
+  return result.data;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -110,7 +260,12 @@ export async function registerRoutes(
   app.use((_req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (process.env.NODE_ENV === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
     next();
   });
 
@@ -127,12 +282,7 @@ export async function registerRoutes(
   });
 
   // ── Seed database only if no admin user exists ───────────────────────────
-  if (process.env.NODE_ENV !== "production") {
-    seedDatabase();
-  } else {
-    // In production still seed if DB is empty (first run), but never re-seed
-    seedDatabase();
-  }
+  seedDatabase();
 
   // ── Auth endpoints (no requireAdmin) ─────────────────────────────────────
   app.post("/api/auth/login", (req, res) => {
@@ -155,9 +305,14 @@ export async function registerRoutes(
     }
 
     const user = storage.getUserByUsername(username);
-    const hashedInput = hashPassword(password);
 
-    if (user && user.password === hashedInput) {
+    if (user && verifyPassword(password, user.password)) {
+      // Migrate legacy SHA-256 hash to scrypt on successful login
+      if (!user.password.includes(":")) {
+        const upgraded = hashPasswordForStorage(password);
+        storage.updateUserPassword(user.id, upgraded);
+      }
+
       // Successful login — reset rate limit
       resetRateLimit(ip);
 
@@ -170,14 +325,18 @@ export async function registerRoutes(
         createdAt: Date.now(),
       });
 
-      // Set session cookie
+      const isProduction = process.env.NODE_ENV === "production";
+      // Set session cookie with Secure flag in production
       res.setHeader(
         "Set-Cookie",
-        `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`
+        `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}${isProduction ? "; Secure" : ""}`
       );
+
+      auditLog({ userId: user.id, username: user.username, name: user.name, role: user.role, createdAt: Date.now() }, "login", { ip });
 
       res.json({ id: user.id, username: user.username, name: user.name, role: user.role });
     } else {
+      auditLog(null, "login_failed", { ip, username });
       res.status(401).json({ message: "Invalid credentials" });
     }
   });
@@ -199,10 +358,12 @@ export async function registerRoutes(
     if (sessionId) {
       sessions.delete(sessionId);
     }
+    const isProduction = process.env.NODE_ENV === "production";
     res.setHeader(
       "Set-Cookie",
-      `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`
+      `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction ? "; Secure" : ""}`
     );
+    auditLog((req as any).adminUser, "logout");
     res.json({ success: true });
   });
 
@@ -212,7 +373,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/dashboard/revenue", requireAdmin, (req, res) => {
-    const days = parseInt(req.query.days as string) || 30;
+    const days = Math.min(Math.max(parseInt(req.query.days as string) || 30, 1), 365);
     res.json(storage.getRevenueByDay(days));
   });
 
@@ -231,65 +392,174 @@ export async function registerRoutes(
     res.json(enriched);
   });
 
-  // ── Customers ──
-  app.get("/api/customers", requireAdmin, (_req, res) => {
-    res.json(storage.getCustomers());
+  // ── Stuck order detection ──
+  app.get("/api/dashboard/stuck-orders", requireAdmin, (_req, res) => {
+    const allOrders = storage.getOrders();
+    const now = Date.now();
+    const stuckOrders = allOrders.filter(o => {
+      if (["delivered", "cancelled"].includes(o.status)) return false;
+      const updatedAt = new Date(o.updatedAt).getTime();
+      const hoursSinceUpdate = (now - updatedAt) / (1000 * 60 * 60);
+      // Orders stuck for > 24h in non-terminal status
+      if (hoursSinceUpdate > 24) return true;
+      // SLA breach: express should be delivered within 6h, premium within 4h
+      if (o.estimatedDelivery) {
+        const estimatedMs = new Date(o.estimatedDelivery).getTime();
+        if (now > estimatedMs && !["delivered", "cancelled"].includes(o.status)) return true;
+      }
+      return false;
+    });
+
+    const enriched = stuckOrders.map(o => {
+      const customer = storage.getCustomer(o.customerId);
+      const driver = o.driverId ? storage.getDriver(o.driverId) : null;
+      const vendor = o.vendorId ? storage.getVendor(o.vendorId) : null;
+      const hoursSinceUpdate = (now - new Date(o.updatedAt).getTime()) / (1000 * 60 * 60);
+      const slaBreach = o.estimatedDelivery ? now > new Date(o.estimatedDelivery).getTime() : false;
+      return {
+        ...o,
+        customerName: customer?.name || "Unknown",
+        driverName: driver?.name || "Unassigned",
+        vendorName: vendor?.name || "Unassigned",
+        hoursSinceUpdate: Math.round(hoursSinceUpdate * 10) / 10,
+        slaBreach,
+      };
+    });
+    res.json(enriched);
   });
 
+  // ── Customers ──
+  // List endpoint: mask PII (email, phone) for list views
+  app.get("/api/customers", requireAdmin, (_req, res) => {
+    const all = storage.getCustomers();
+    const masked = all.map(c => ({
+      ...c,
+      email: maskEmail(c.email),
+      phone: maskPhone(c.phone),
+    }));
+    res.json(masked);
+  });
+
+  // Detail endpoint: full PII visible for admin operations
   app.get("/api/customers/:id", requireAdmin, (req, res) => {
-    const customer = storage.getCustomer(parseInt(req.params.id));
+    const customer = storage.getCustomer(parseInt(paramStr(req.params.id)));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     res.json(customer);
   });
 
   app.patch("/api/customers/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateCustomer(parseInt(req.params.id), req.body);
+    const data = validateBody(updateCustomerSchema, req, res);
+    if (!data) return;
+    const updated = storage.updateCustomer(parseInt(paramStr(req.params.id)), data);
     if (!updated) return res.status(404).json({ message: "Customer not found" });
+    auditLog((req as any).adminUser, "update_customer", { customerId: paramStr(req.params.id), fields: Object.keys(data) });
     res.json(updated);
   });
 
   app.get("/api/customers/:id/orders", requireAdmin, (req, res) => {
     const allOrders = storage.getOrders();
-    const customerOrders = allOrders.filter(o => o.customerId === parseInt(req.params.id));
+    const customerOrders = allOrders.filter(o => o.customerId === parseInt(paramStr(req.params.id)));
     res.json(customerOrders);
   });
 
   app.get("/api/customers/:id/communications", requireAdmin, (req, res) => {
-    res.json(storage.getCommunicationLog(parseInt(req.params.id)));
+    res.json(storage.getCommunicationLog(parseInt(paramStr(req.params.id))));
   });
 
   // ── Drivers ──
+  // List endpoint: mask email/phone for list views
   app.get("/api/drivers", requireAdmin, (_req, res) => {
-    res.json(storage.getDrivers());
+    const all = storage.getDrivers();
+    const masked = all.map(d => ({
+      ...d,
+      email: maskEmail(d.email),
+      phone: maskPhone(d.phone),
+    }));
+    res.json(masked);
   });
 
   app.get("/api/drivers/:id", requireAdmin, (req, res) => {
-    const driver = storage.getDriver(parseInt(req.params.id));
+    const driver = storage.getDriver(parseInt(paramStr(req.params.id)));
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     res.json(driver);
   });
 
-  app.patch("/api/drivers/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateDriver(parseInt(req.params.id), req.body);
+  app.patch("/api/drivers/:id", requireAdmin, requireRole("admin"), (req, res) => {
+    const data = validateBody(updateDriverSchema, req, res);
+    if (!data) return;
+    const updated = storage.updateDriver(parseInt(paramStr(req.params.id)), data);
     if (!updated) return res.status(404).json({ message: "Driver not found" });
+    auditLog((req as any).adminUser, "update_driver", { driverId: paramStr(req.params.id), fields: Object.keys(data) });
     res.json(updated);
   });
 
+  // ── Driver earnings endpoint (isolated per driver by ID) ──
+  app.get("/api/drivers/:id/earnings", requireAdmin, (req, res) => {
+    const driverId = parseInt(paramStr(req.params.id));
+    const driver = storage.getDriver(driverId);
+    if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+    const allTransactions = storage.getTransactions();
+    const driverTransactions = allTransactions.filter(
+      t => t.recipientType === "driver" && t.recipientId === driverId
+    );
+    const totalPaid = driverTransactions.filter(t => t.status === "completed").reduce((s, t) => s + t.amount, 0);
+    const pending = driverTransactions.filter(t => t.status === "pending").reduce((s, t) => s + t.amount, 0);
+
+    res.json({
+      driverId,
+      driverName: driver.name,
+      totalEarnings: driver.totalEarnings,
+      totalPaid: Math.round(totalPaid * 100) / 100,
+      pendingPayout: Math.round(pending * 100) / 100,
+      transactions: driverTransactions,
+    });
+  });
+
   // ── Vendors ──
+  // List endpoint: mask email/phone
   app.get("/api/vendors", requireAdmin, (_req, res) => {
-    res.json(storage.getVendors());
+    const all = storage.getVendors();
+    const masked = all.map(v => ({
+      ...v,
+      email: maskEmail(v.email),
+      phone: maskPhone(v.phone),
+    }));
+    res.json(masked);
   });
 
   app.get("/api/vendors/:id", requireAdmin, (req, res) => {
-    const vendor = storage.getVendor(parseInt(req.params.id));
+    const vendor = storage.getVendor(parseInt(paramStr(req.params.id)));
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
     res.json(vendor);
   });
 
-  app.patch("/api/vendors/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateVendor(parseInt(req.params.id), req.body);
+  app.patch("/api/vendors/:id", requireAdmin, requireRole("admin"), (req, res) => {
+    const data = validateBody(updateVendorSchema, req, res);
+    if (!data) return;
+    const updated = storage.updateVendor(parseInt(paramStr(req.params.id)), data);
     if (!updated) return res.status(404).json({ message: "Vendor not found" });
+    auditLog((req as any).adminUser, "update_vendor", { vendorId: paramStr(req.params.id), fields: Object.keys(data) });
     res.json(updated);
+  });
+
+  // ── Vendor-scoped orders (vendor can only see their own orders) ──
+  app.get("/api/vendors/:id/orders", requireAdmin, (req, res) => {
+    const vendorId = parseInt(paramStr(req.params.id));
+    const vendor = storage.getVendor(vendorId);
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+
+    const allOrders = storage.getOrders();
+    const vendorOrders = allOrders.filter(o => o.vendorId === vendorId);
+    const enriched = vendorOrders.map(o => {
+      const customer = storage.getCustomer(o.customerId);
+      return {
+        ...o,
+        customerName: customer?.name || "Unknown",
+        // Don't expose full customer contact info to vendor context
+      };
+    });
+    res.json(enriched);
   });
 
   // ── Orders ──
@@ -310,7 +580,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/orders/:id", requireAdmin, (req, res) => {
-    const order = storage.getOrder(parseInt(req.params.id));
+    const order = storage.getOrder(parseInt(paramStr(req.params.id)));
     if (!order) return res.status(404).json({ message: "Order not found" });
     const customer = storage.getCustomer(order.customerId);
     const driver = order.driverId ? storage.getDriver(order.driverId) : null;
@@ -326,9 +596,42 @@ export async function registerRoutes(
   });
 
   app.patch("/api/orders/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateOrder(parseInt(req.params.id), req.body);
+    const data = validateBody(updateOrderSchema, req, res);
+    if (!data) return;
+    const updated = storage.updateOrder(parseInt(paramStr(req.params.id)), data);
     if (!updated) return res.status(404).json({ message: "Order not found" });
+    auditLog((req as any).adminUser, "update_order", { orderId: paramStr(req.params.id), fields: Object.keys(data) });
     res.json(updated);
+  });
+
+  // ── Refund endpoint ──
+  app.post("/api/orders/:id/refund", requireAdmin, requireRole("admin"), (req, res) => {
+    const orderId = parseInt(paramStr(req.params.id));
+    const order = storage.getOrder(orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const refundSchema = z.object({
+      amount: z.number().positive().max(order.total),
+      reason: z.string().min(1).max(500),
+    }).strict();
+
+    const data = validateBody(refundSchema, req, res);
+    if (!data) return;
+
+    // Create refund transaction
+    const refundTx = storage.createTransaction({
+      orderId,
+      type: "refund",
+      amount: data.amount,
+      status: "completed",
+      recipientType: "customer",
+      recipientId: order.customerId,
+      description: `Refund for order ${order.orderNumber}: ${data.reason}`,
+      createdAt: new Date().toISOString(),
+    });
+
+    auditLog((req as any).adminUser, "refund_order", { orderId, amount: data.amount, reason: data.reason });
+    res.json({ success: true, transaction: refundTx });
   });
 
   // ── Reviews ──
@@ -348,7 +651,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/disputes/:id", requireAdmin, (req, res) => {
-    const dispute = storage.getDispute(parseInt(req.params.id));
+    const dispute = storage.getDispute(parseInt(paramStr(req.params.id)));
     if (!dispute) return res.status(404).json({ message: "Dispute not found" });
     const customer = storage.getCustomer(dispute.customerId);
     const order = storage.getOrder(dispute.orderId);
@@ -361,8 +664,30 @@ export async function registerRoutes(
   });
 
   app.patch("/api/disputes/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateDispute(parseInt(req.params.id), req.body);
+    const data = validateBody(updateDisputeSchema, req, res);
+    if (!data) return;
+
+    // If resolving with refund, create the refund transaction automatically
+    if (data.status === "resolved" && data.resolution && data.resolution !== "deny" && data.resolutionAmount && data.resolutionAmount > 0) {
+      const dispute = storage.getDispute(parseInt(paramStr(req.params.id)));
+      if (dispute) {
+        const order = storage.getOrder(dispute.orderId);
+        storage.createTransaction({
+          orderId: dispute.orderId,
+          type: "refund",
+          amount: data.resolutionAmount,
+          status: "completed",
+          recipientType: "customer",
+          recipientId: dispute.customerId,
+          description: `Dispute #${dispute.id} resolution (${data.resolution}) for order ${order?.orderNumber || "N/A"}`,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    const updated = storage.updateDispute(parseInt(paramStr(req.params.id)), data);
     if (!updated) return res.status(404).json({ message: "Dispute not found" });
+    auditLog((req as any).adminUser, "update_dispute", { disputeId: paramStr(req.params.id), fields: Object.keys(data) });
     res.json(updated);
   });
 
@@ -371,18 +696,24 @@ export async function registerRoutes(
     res.json(storage.getPromoCodes());
   });
 
-  app.post("/api/promo-codes", requireAdmin, (req, res) => {
+  app.post("/api/promo-codes", requireAdmin, requireRole("admin"), (req, res) => {
+    const data = validateBody(createPromoCodeSchema, req, res);
+    if (!data) return;
     try {
-      const promo = storage.createPromoCode(req.body);
+      const promo = storage.createPromoCode({ ...data, createdAt: data.createdAt || new Date().toISOString() });
+      auditLog((req as any).adminUser, "create_promo_code", { code: data.code });
       res.json(promo);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
   });
 
-  app.patch("/api/promo-codes/:id", requireAdmin, (req, res) => {
-    const updated = storage.updatePromoCode(parseInt(req.params.id), req.body);
+  app.patch("/api/promo-codes/:id", requireAdmin, requireRole("admin"), (req, res) => {
+    const data = validateBody(updatePromoCodeSchema, req, res);
+    if (!data) return;
+    const updated = storage.updatePromoCode(parseInt(paramStr(req.params.id)), data);
     if (!updated) return res.status(404).json({ message: "Promo code not found" });
+    auditLog((req as any).adminUser, "update_promo_code", { promoId: paramStr(req.params.id), fields: Object.keys(data) });
     res.json(updated);
   });
 
@@ -391,13 +722,16 @@ export async function registerRoutes(
     res.json(storage.getTransactions());
   });
 
-  // ── Settings ──
+  // ── Settings (admin-only for writes) ──
   app.get("/api/settings", requireAdmin, (_req, res) => {
     res.json(storage.getSettings());
   });
 
-  app.patch("/api/settings/:key", requireAdmin, (req, res) => {
-    storage.updateSetting(req.params.key, req.body.value);
+  app.patch("/api/settings/:key", requireAdmin, requireRole("admin"), (req, res) => {
+    const data = validateBody(updateSettingSchema, req, res);
+    if (!data) return;
+    storage.updateSetting(paramStr(req.params.key), data.value);
+    auditLog((req as any).adminUser, "update_setting", { key: paramStr(req.params.key) });
     res.json({ success: true });
   });
 

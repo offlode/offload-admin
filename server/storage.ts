@@ -23,6 +23,7 @@ export interface IStorage {
   getUser(id: number): User | undefined;
   getUserByUsername(username: string): User | undefined;
   createUser(user: InsertUser): User;
+  updateUserPassword(id: number, hashedPassword: string): void;
   // Customers
   getCustomers(): Customer[];
   getCustomer(id: number): Customer | undefined;
@@ -53,6 +54,7 @@ export interface IStorage {
   updatePromoCode(id: number, data: Partial<PromoCode>): PromoCode | undefined;
   // Transactions
   getTransactions(): Transaction[];
+  createTransaction(data: any): Transaction;
   // Settings
   getSettings(): PlatformSetting[];
   updateSetting(key: string, value: string): void;
@@ -73,6 +75,9 @@ export class DatabaseStorage implements IStorage {
   }
   createUser(insertUser: InsertUser): User {
     return db.insert(users).values(insertUser).returning().get();
+  }
+  updateUserPassword(id: number, hashedPassword: string): void {
+    db.update(users).set({ password: hashedPassword }).where(eq(users.id, id)).run();
   }
 
   // Customers
@@ -155,6 +160,9 @@ export class DatabaseStorage implements IStorage {
   // Transactions
   getTransactions(): Transaction[] {
     return db.select().from(transactions).orderBy(desc(transactions.createdAt)).all();
+  }
+  createTransaction(data: any): Transaction {
+    return db.insert(transactions).values(data).returning().get();
   }
 
   // Settings
