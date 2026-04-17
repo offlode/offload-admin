@@ -12,8 +12,15 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, asc, like, and, gte, lte, sql, count } from "drizzle-orm";
 
-// Single source of truth: connect to the main customer app's database
-const dbPath = process.env.SHARED_DB_PATH || require("path").resolve(__dirname, "../../offload/data.db");
+// Database path: use SHARED_DB_PATH env var on Render, or fallback to local data.db
+import path from "path";
+import fs from "fs";
+const dbPath = process.env.SHARED_DB_PATH || (process.env.RENDER ? path.resolve("/opt/render/project/src/data.db") : path.resolve(__dirname, "../../offload/data.db"));
+// Ensure the directory exists (fixes Render deploy crash)
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 const sqlite = new Database(dbPath);
 sqlite.pragma("journal_mode = WAL");
 
