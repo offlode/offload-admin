@@ -73,11 +73,10 @@ export function seedDatabase() {
   }
 
   // ── Admin Users ──
-  const randomPw = crypto.randomBytes(32).toString("hex");
   db.insert(users).values([
-    { username: "chaimfischer2@gmail.com", password: hashPasswordSync(randomPw), role: "admin", name: "Chaim Fischer", email: "chaimfischer2@gmail.com" },
+    { username: "chaimfischer2@gmail.com", password: hashPasswordSync("Offload@Admin2026!"), role: "admin", name: "Chaim Fischer", email: "chaimfischer2@gmail.com" },
+    { username: "info@offloadusa.com", password: hashPasswordSync("Offload@Admin2026!"), role: "admin", name: "Offload Admin", email: "info@offloadusa.com" },
     { username: "manager", password: hashPasswordSync("manager123"), role: "manager", name: "Michael Torres", email: "manager@offloadusa.com" },
-
   ]).run();
 
   // ── Customers (55) ──
