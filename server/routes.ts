@@ -609,13 +609,18 @@ export async function registerRoutes(
       else clvBuckets[4].count++;
     });
 
-    // Acquisition funnel (simulated)
+    // Acquisition funnel: only the stages we can derive from real data.
+    // We don't track website visits in this DB, so omit that stage rather than
+    // making up a number.
+    const totalUsers = allCustomers.length;
+    const usersWithFirstOrder = allCustomers.filter(c => (c.orderCount || 0) >= 1).length;
+    const repeatCustomers = allCustomers.filter(c => (c.orderCount || 0) >= 2).length;
+    const subscribers = allCustomers.filter(c => !!c.subscriptionType).length;
     const funnel = [
-      { stage: "Website Visits", count: 12500 },
-      { stage: "Sign Ups", count: 850 },
-      { stage: "First Order", count: 420 },
-      { stage: "Repeat Customer", count: 195 },
-      { stage: "Subscriber", count: 78 },
+      { stage: "Sign Ups", count: totalUsers },
+      { stage: "First Order", count: usersWithFirstOrder },
+      { stage: "Repeat Customer", count: repeatCustomers },
+      { stage: "Subscriber", count: subscribers },
     ];
 
     res.json({
