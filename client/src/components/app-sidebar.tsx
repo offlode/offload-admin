@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ShoppingCart, Users, Truck, Store,
-  DollarSign, AlertTriangle, Tag, BarChart3, Settings, LogOut,
+  DollarSign, AlertTriangle, Tag, BarChart3, Settings, LogOut, Bell,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -23,6 +23,7 @@ const navItems = [
   { title: "Promos & Loyalty", url: "/promos", icon: Tag },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Notification Rules", url: "/notification-rules", icon: Bell },
 ];
 
 export function AppSidebar() {

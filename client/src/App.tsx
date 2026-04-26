@@ -27,6 +27,7 @@ import DisputeDetailPage from "@/pages/dispute-detail";
 import PromosPage from "@/pages/promos";
 import AnalyticsPage from "@/pages/analytics";
 import SettingsPage from "@/pages/settings";
+import NotificationRulesPage from "@/pages/notification-rules";
 import NotFound from "@/pages/not-found";
 
 function AppRouter() {
@@ -47,6 +48,7 @@ function AppRouter() {
       <Route path="/promos" component={PromosPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/notification-rules" component={NotificationRulesPage} />
       <Route component={NotFound} />
     </Switch>
   );
