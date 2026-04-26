@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, setAuthToken } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,11 +32,18 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const res = await apiRequest("POST", "/api/auth/login", { username, password });
-      const user = await res.json();
+      const res = await apiRequest("POST", "/api/auth/login", { email: username, password });
+      const data = await res.json();
+      const user = data.user || data;
+      if (!user || !["admin", "manager"].includes(user.role)) {
+        setAuthToken(null);
+        setError("Access denied. Admin or manager role required.");
+        return;
+      }
+      setAuthToken(data.token || null);
       login(user);
-    } catch {
-      setError("Invalid username or password.");
+    } catch (err: any) {
+      setError(err?.message?.includes("403") ? "Access denied. Admin or manager role required." : "Invalid username or password.");
     } finally {
       setLoading(false);
     }

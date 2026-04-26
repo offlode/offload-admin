@@ -295,6 +295,16 @@ export class DatabaseStorage implements IStorage {
       .run();
   }
 
+  cleanExpiredResetTokens(): void {
+    db.delete(passwordResetTokens)
+      .where(sql`${passwordResetTokens.expiresAt} < ${new Date().toISOString()}`)
+      .run();
+  }
+
+  getAllUsers(): User[] {
+    return db.select().from(users).orderBy(desc(users.id)).all();
+  }
+
 }
 
 export const storage = new DatabaseStorage();

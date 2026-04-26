@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { seedDatabase, ensureSuperAdmin } from "./seed";
+// Seed data disabled: admin panel now reads production API data.
 import crypto from "crypto";
 import { promisify } from "util";
 import { Resend } from "resend";
@@ -171,9 +171,7 @@ export async function registerRoutes(
     next();
   });
 
-  // ── Seed database ────────────────────────────────────────────────────────
-  seedDatabase();
-  ensureSuperAdmin();
+  // ── Seed database disabled in production admin ───────────────────────────
 
   // ── Auth endpoints (no requireAdmin) ─────────────────────────────────────
   app.post("/api/auth/login", async (req, res) => {
@@ -371,25 +369,25 @@ export async function registerRoutes(
   });
 
   app.get("/api/customers/:id", requireAdmin, (req, res) => {
-    const customer = storage.getCustomer(parseInt(req.params.id));
+    const customer = storage.getCustomer(Number(String(req.params.id)));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     res.json(customer);
   });
 
   app.patch("/api/customers/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateCustomer(parseInt(req.params.id), req.body);
+    const updated = storage.updateCustomer(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Customer not found" });
     res.json(updated);
   });
 
   app.get("/api/customers/:id/orders", requireAdmin, (req, res) => {
     const allOrders = storage.getOrders();
-    const customerOrders = allOrders.filter(o => o.customerId === parseInt(req.params.id));
+    const customerOrders = allOrders.filter(o => o.customerId === Number(String(req.params.id)));
     res.json(customerOrders);
   });
 
   app.get("/api/customers/:id/communications", requireAdmin, (req, res) => {
-    res.json(storage.getCommunicationLog(parseInt(req.params.id)));
+    res.json(storage.getCommunicationLog(Number(String(req.params.id))));
   });
 
   // ── Drivers ──
@@ -398,13 +396,13 @@ export async function registerRoutes(
   });
 
   app.get("/api/drivers/:id", requireAdmin, (req, res) => {
-    const driver = storage.getDriver(parseInt(req.params.id));
+    const driver = storage.getDriver(Number(String(req.params.id)));
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     res.json(driver);
   });
 
   app.patch("/api/drivers/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateDriver(parseInt(req.params.id), req.body);
+    const updated = storage.updateDriver(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Driver not found" });
     res.json(updated);
   });
@@ -415,13 +413,13 @@ export async function registerRoutes(
   });
 
   app.get("/api/vendors/:id", requireAdmin, (req, res) => {
-    const vendor = storage.getVendor(parseInt(req.params.id));
+    const vendor = storage.getVendor(Number(String(req.params.id)));
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
     res.json(vendor);
   });
 
   app.patch("/api/vendors/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateVendor(parseInt(req.params.id), req.body);
+    const updated = storage.updateVendor(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Vendor not found" });
     res.json(updated);
   });
@@ -444,7 +442,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/orders/:id", requireAdmin, (req, res) => {
-    const order = storage.getOrder(parseInt(req.params.id));
+    const order = storage.getOrder(Number(String(req.params.id)));
     if (!order) return res.status(404).json({ message: "Order not found" });
     const customer = storage.getCustomer(order.customerId);
     const driver = order.driverId ? storage.getDriver(order.driverId) : null;
@@ -460,7 +458,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/orders/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateOrder(parseInt(req.params.id), req.body);
+    const updated = storage.updateOrder(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Order not found" });
     res.json(updated);
   });
@@ -482,7 +480,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/disputes/:id", requireAdmin, (req, res) => {
-    const dispute = storage.getDispute(parseInt(req.params.id));
+    const dispute = storage.getDispute(Number(String(req.params.id)));
     if (!dispute) return res.status(404).json({ message: "Dispute not found" });
     const customer = storage.getCustomer(dispute.customerId);
     const order = storage.getOrder(dispute.orderId);
@@ -495,7 +493,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/disputes/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateDispute(parseInt(req.params.id), req.body);
+    const updated = storage.updateDispute(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Dispute not found" });
     res.json(updated);
   });
@@ -515,7 +513,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/promo-codes/:id", requireAdmin, (req, res) => {
-    const updated = storage.updatePromoCode(parseInt(req.params.id), req.body);
+    const updated = storage.updatePromoCode(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Promo code not found" });
     res.json(updated);
   });
@@ -531,7 +529,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/settings/:key", requireAdmin, (req, res) => {
-    storage.updateSetting(req.params.key, req.body.value);
+    storage.updateSetting(String(req.params.key), req.body.value);
     res.json({ success: true });
   });
 

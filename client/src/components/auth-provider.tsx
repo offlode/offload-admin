@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { API_BASE, setAuthToken } from "@/lib/queryClient";
 
 interface AuthUser {
   id: number;
@@ -20,13 +21,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // On mount, check if we have a valid session
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+    fetch(`${API_BASE}/api/auth/me`, { credentials: "include" })
       .then((res) => {
         if (res.ok) return res.json();
         return null;
       })
       .then((data) => {
-        if (data && data.id) setUser(data);
+        if (data?.user?.id && ["admin", "manager"].includes(data.user.role)) setUser(data.user);
+        else if (data?.id && ["admin", "manager"].includes(data.role)) setUser(data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -34,8 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
     } catch {}
+    setAuthToken(null);
     setUser(null);
   };
 
