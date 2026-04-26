@@ -121,8 +121,6 @@ function checkForgotPasswordRateLimit(ip: string): boolean {
 }
 
 // ── Resend email client ───────────────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY || "re_WRb6SKUJ_GCVu86o6Ju8qJPa39usgsKfz");
-
 // ── Auth middleware ──────────────────────────────────────────────────────────
 const SESSION_COOKIE = "admin_session";
 
@@ -157,6 +155,14 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      status: "healthy",
+      service: "offload-admin",
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   // ── Security headers ─────────────────────────────────────────────────────
   app.use((_req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -231,7 +237,7 @@ export async function registerRoutes(
       // Set session cookie
       res.setHeader(
         "Set-Cookie",
-        `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`
+        `${SESSION_COOKIE}=${sessionId}; HttpOnly${process.env.NODE_ENV === "production" ? "; Secure" : ""}; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`
       );
 
       res.json({ id: user.id, username: user.username, name: user.name, role: user.role });
@@ -259,7 +265,7 @@ export async function registerRoutes(
     }
     res.setHeader(
       "Set-Cookie",
-      `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`
+      `${SESSION_COOKIE}=; HttpOnly${process.env.NODE_ENV === "production" ? "; Secure" : ""}; SameSite=Strict; Path=/; Max-Age=0`
     );
     res.json({ success: true });
   });
