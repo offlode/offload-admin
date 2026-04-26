@@ -194,7 +194,8 @@ export async function registerRoutes(
     }
 
     // Support login by email or username
-    const user = storage.getUserByUsername(username) || storage.getUserByEmail(username);
+    const userByUsername = await storage.getUserByUsername(username);
+    const user = userByUsername || await storage.getUserByEmail(username);
     if (!user) {
       res.status(401).json({ message: "Invalid credentials" });
       return;
@@ -209,7 +210,7 @@ export async function registerRoutes(
       // If legacy SHA-256 password, migrate to scrypt on successful login
       if (!user.password.includes(":")) {
         const newHash = await hashPassword(password);
-        storage.updateUser(user.id, { password: newHash });
+        await storage.updateUser(user.id, { password: newHash });
       }
 
       const sessionId = generateSessionId();
@@ -259,7 +260,7 @@ export async function registerRoutes(
 
   // ── Forgot Password (public, no requireAdmin) ──
   const forgotPwLimits = new Map<string, { count: number; resetAt: number }>();
-  app.post("/api/auth/forgot-password", (req, res) => {
+  app.post("/api/auth/forgot-password", async (req, res) => {
     const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
     const now = Date.now();
     const limit = forgotPwLimits.get(ip);
@@ -278,12 +279,13 @@ export async function registerRoutes(
     const successMsg = { message: "If an account with that email exists, a password reset link has been sent." };
 
     // Look up by email or username
-    const user = storage.getUserByEmail(email) || storage.getUserByUsername(email);
+    const userByEmail = await storage.getUserByEmail(email);
+    const user = userByEmail || await storage.getUserByUsername(email);
     if (!user) return res.json(successMsg);
 
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 3600000).toISOString();
-    storage.createPasswordResetToken(user.id, token, expiresAt);
+    await storage.createPasswordResetToken(user.id, token, expiresAt);
 
     if (process.env.RESEND_API_KEY) {
       try {
@@ -320,14 +322,14 @@ export async function registerRoutes(
     if (!token || !password) return res.status(400).json({ message: "Token and new password are required" });
     if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
 
-    const resetRecord = storage.getPasswordResetToken(token);
+    const resetRecord = await storage.getPasswordResetToken(token);
     if (!resetRecord) return res.status(400).json({ message: "Invalid or expired reset link." });
     if (resetRecord.usedAt) return res.status(400).json({ message: "This link has already been used." });
     if (new Date(resetRecord.expiresAt) < new Date()) return res.status(400).json({ message: "This link has expired." });
 
     const newHash = await hashPassword(password);
-    storage.updateUser(resetRecord.userId, { password: newHash });
-    storage.markPasswordResetTokenUsed(token);
+    await storage.updateUser(resetRecord.userId, { password: newHash });
+    await storage.markPasswordResetTokenUsed(token);
 
     // Invalidate all sessions for this user
     for (const [sid, sess] of sessions.entries()) {
@@ -339,115 +341,115 @@ export async function registerRoutes(
   });
 
   // ── KPIs / Dashboard ──
-  app.get("/api/dashboard/kpis", requireAdmin, (_req, res) => {
-    res.json(storage.getKPIs());
+  app.get("/api/dashboard/kpis", requireAdmin, async (_req, res) => {
+    res.json(await storage.getKPIs());
   });
 
-  app.get("/api/dashboard/revenue", requireAdmin, (req, res) => {
+  app.get("/api/dashboard/revenue", requireAdmin, async (req, res) => {
     const days = parseInt(req.query.days as string) || 30;
-    res.json(storage.getRevenueByDay(days));
+    res.json(await storage.getRevenueByDay(days));
   });
 
-  app.get("/api/dashboard/orders-by-status", requireAdmin, (_req, res) => {
-    res.json(storage.getOrdersByStatus());
+  app.get("/api/dashboard/orders-by-status", requireAdmin, async (_req, res) => {
+    res.json(await storage.getOrdersByStatus());
   });
 
-  app.get("/api/dashboard/recent-orders", requireAdmin, (_req, res) => {
-    const orders = storage.getRecentOrders(10);
+  app.get("/api/dashboard/recent-orders", requireAdmin, async (_req, res) => {
+    const recentOrders = await storage.getRecentOrders(10);
     // Enrich with customer names
-    const enriched = orders.map(o => {
-      const customer = storage.getCustomer(o.customerId);
-      const driver = o.driverId ? storage.getDriver(o.driverId) : null;
+    const enriched = await Promise.all(recentOrders.map(async o => {
+      const customer = await storage.getCustomer(o.customerId);
+      const driver = o.driverId ? await storage.getDriver(o.driverId) : null;
       return { ...o, customerName: customer?.name || "Unknown", driverName: driver?.name || "Unassigned" };
-    });
+    }));
     res.json(enriched);
   });
 
   // ── Customers ──
-  app.get("/api/customers", requireAdmin, (_req, res) => {
-    res.json(storage.getCustomers());
+  app.get("/api/customers", requireAdmin, async (_req, res) => {
+    res.json(await storage.getCustomers());
   });
 
-  app.get("/api/customers/:id", requireAdmin, (req, res) => {
-    const customer = storage.getCustomer(Number(String(req.params.id)));
+  app.get("/api/customers/:id", requireAdmin, async (req, res) => {
+    const customer = await storage.getCustomer(Number(String(req.params.id)));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     res.json(customer);
   });
 
-  app.patch("/api/customers/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateCustomer(Number(String(req.params.id)), req.body);
+  app.patch("/api/customers/:id", requireAdmin, async (req, res) => {
+    const updated = await storage.updateCustomer(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Customer not found" });
     res.json(updated);
   });
 
-  app.get("/api/customers/:id/orders", requireAdmin, (req, res) => {
-    const allOrders = storage.getOrders();
+  app.get("/api/customers/:id/orders", requireAdmin, async (req, res) => {
+    const allOrders = await storage.getOrders();
     const customerOrders = allOrders.filter(o => o.customerId === Number(String(req.params.id)));
     res.json(customerOrders);
   });
 
-  app.get("/api/customers/:id/communications", requireAdmin, (req, res) => {
-    res.json(storage.getCommunicationLog(Number(String(req.params.id))));
+  app.get("/api/customers/:id/communications", requireAdmin, async (req, res) => {
+    res.json(await storage.getCommunicationLog(Number(String(req.params.id))));
   });
 
   // ── Drivers ──
-  app.get("/api/drivers", requireAdmin, (_req, res) => {
-    res.json(storage.getDrivers());
+  app.get("/api/drivers", requireAdmin, async (_req, res) => {
+    res.json(await storage.getDrivers());
   });
 
-  app.get("/api/drivers/:id", requireAdmin, (req, res) => {
-    const driver = storage.getDriver(Number(String(req.params.id)));
+  app.get("/api/drivers/:id", requireAdmin, async (req, res) => {
+    const driver = await storage.getDriver(Number(String(req.params.id)));
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     res.json(driver);
   });
 
-  app.patch("/api/drivers/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateDriver(Number(String(req.params.id)), req.body);
+  app.patch("/api/drivers/:id", requireAdmin, async (req, res) => {
+    const updated = await storage.updateDriver(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Driver not found" });
     res.json(updated);
   });
 
   // ── Vendors ──
-  app.get("/api/vendors", requireAdmin, (_req, res) => {
-    res.json(storage.getVendors());
+  app.get("/api/vendors", requireAdmin, async (_req, res) => {
+    res.json(await storage.getVendors());
   });
 
-  app.get("/api/vendors/:id", requireAdmin, (req, res) => {
-    const vendor = storage.getVendor(Number(String(req.params.id)));
+  app.get("/api/vendors/:id", requireAdmin, async (req, res) => {
+    const vendor = await storage.getVendor(Number(String(req.params.id)));
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
     res.json(vendor);
   });
 
-  app.patch("/api/vendors/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateVendor(Number(String(req.params.id)), req.body);
+  app.patch("/api/vendors/:id", requireAdmin, async (req, res) => {
+    const updated = await storage.updateVendor(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Vendor not found" });
     res.json(updated);
   });
 
   // ── Orders ──
-  app.get("/api/orders", requireAdmin, (_req, res) => {
-    const allOrders = storage.getOrders();
-    const enriched = allOrders.map(o => {
-      const customer = storage.getCustomer(o.customerId);
-      const driver = o.driverId ? storage.getDriver(o.driverId) : null;
-      const vendor = o.vendorId ? storage.getVendor(o.vendorId) : null;
+  app.get("/api/orders", requireAdmin, async (_req, res) => {
+    const allOrders = await storage.getOrders();
+    const enriched = await Promise.all(allOrders.map(async o => {
+      const customer = await storage.getCustomer(o.customerId);
+      const driver = o.driverId ? await storage.getDriver(o.driverId) : null;
+      const vendor = o.vendorId ? await storage.getVendor(o.vendorId) : null;
       return {
         ...o,
         customerName: customer?.name || "Unknown",
         driverName: driver?.name || "Unassigned",
         vendorName: vendor?.name || "Unassigned",
       };
-    });
+    }));
     res.json(enriched);
   });
 
-  app.get("/api/orders/:id", requireAdmin, (req, res) => {
-    const order = storage.getOrder(Number(String(req.params.id)));
+  app.get("/api/orders/:id", requireAdmin, async (req, res) => {
+    const order = await storage.getOrder(Number(String(req.params.id)));
     if (!order) return res.status(404).json({ message: "Order not found" });
-    const customer = storage.getCustomer(order.customerId);
-    const driver = order.driverId ? storage.getDriver(order.driverId) : null;
-    const vendor = order.vendorId ? storage.getVendor(order.vendorId) : null;
-    const history = storage.getOrderStatusHistory(order.id);
+    const customer = await storage.getCustomer(order.customerId);
+    const driver = order.driverId ? await storage.getDriver(order.driverId) : null;
+    const vendor = order.vendorId ? await storage.getVendor(order.vendorId) : null;
+    const history = await storage.getOrderStatusHistory(order.id);
     res.json({
       ...order,
       customerName: customer?.name || "Unknown",
@@ -457,33 +459,33 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/orders/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateOrder(Number(String(req.params.id)), req.body);
+  app.patch("/api/orders/:id", requireAdmin, async (req, res) => {
+    const updated = await storage.updateOrder(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Order not found" });
     res.json(updated);
   });
 
   // ── Reviews ──
-  app.get("/api/reviews", requireAdmin, (_req, res) => {
-    res.json(storage.getReviews());
+  app.get("/api/reviews", requireAdmin, async (_req, res) => {
+    res.json(await storage.getReviews());
   });
 
   // ── Disputes ──
-  app.get("/api/disputes", requireAdmin, (_req, res) => {
-    const allDisputes = storage.getDisputes();
-    const enriched = allDisputes.map(d => {
-      const customer = storage.getCustomer(d.customerId);
-      const order = storage.getOrder(d.orderId);
+  app.get("/api/disputes", requireAdmin, async (_req, res) => {
+    const allDisputes = await storage.getDisputes();
+    const enriched = await Promise.all(allDisputes.map(async d => {
+      const customer = await storage.getCustomer(d.customerId);
+      const order = await storage.getOrder(d.orderId);
       return { ...d, customerName: customer?.name || "Unknown", orderNumber: order?.orderNumber || "N/A" };
-    });
+    }));
     res.json(enriched);
   });
 
-  app.get("/api/disputes/:id", requireAdmin, (req, res) => {
-    const dispute = storage.getDispute(Number(String(req.params.id)));
+  app.get("/api/disputes/:id", requireAdmin, async (req, res) => {
+    const dispute = await storage.getDispute(Number(String(req.params.id)));
     if (!dispute) return res.status(404).json({ message: "Dispute not found" });
-    const customer = storage.getCustomer(dispute.customerId);
-    const order = storage.getOrder(dispute.orderId);
+    const customer = await storage.getCustomer(dispute.customerId);
+    const order = await storage.getOrder(dispute.orderId);
     res.json({
       ...dispute,
       customerName: customer?.name || "Unknown",
@@ -492,53 +494,53 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/disputes/:id", requireAdmin, (req, res) => {
-    const updated = storage.updateDispute(Number(String(req.params.id)), req.body);
+  app.patch("/api/disputes/:id", requireAdmin, async (req, res) => {
+    const updated = await storage.updateDispute(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Dispute not found" });
     res.json(updated);
   });
 
   // ── Promo Codes ──
-  app.get("/api/promo-codes", requireAdmin, (_req, res) => {
-    res.json(storage.getPromoCodes());
+  app.get("/api/promo-codes", requireAdmin, async (_req, res) => {
+    res.json(await storage.getPromoCodes());
   });
 
-  app.post("/api/promo-codes", requireAdmin, (req, res) => {
+  app.post("/api/promo-codes", requireAdmin, async (req, res) => {
     try {
-      const promo = storage.createPromoCode(req.body);
+      const promo = await storage.createPromoCode(req.body);
       res.json(promo);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
   });
 
-  app.patch("/api/promo-codes/:id", requireAdmin, (req, res) => {
-    const updated = storage.updatePromoCode(Number(String(req.params.id)), req.body);
+  app.patch("/api/promo-codes/:id", requireAdmin, async (req, res) => {
+    const updated = await storage.updatePromoCode(Number(String(req.params.id)), req.body);
     if (!updated) return res.status(404).json({ message: "Promo code not found" });
     res.json(updated);
   });
 
   // ── Transactions ──
-  app.get("/api/transactions", requireAdmin, (_req, res) => {
-    res.json(storage.getTransactions());
+  app.get("/api/transactions", requireAdmin, async (_req, res) => {
+    res.json(await storage.getTransactions());
   });
 
   // ── Settings ──
-  app.get("/api/settings", requireAdmin, (_req, res) => {
-    res.json(storage.getSettings());
+  app.get("/api/settings", requireAdmin, async (_req, res) => {
+    res.json(await storage.getSettings());
   });
 
-  app.patch("/api/settings/:key", requireAdmin, (req, res) => {
-    storage.updateSetting(String(req.params.key), req.body.value);
+  app.patch("/api/settings/:key", requireAdmin, async (req, res) => {
+    await storage.updateSetting(String(req.params.key), req.body.value);
     res.json({ success: true });
   });
 
   // ── Analytics ──
-  app.get("/api/analytics/overview", requireAdmin, (_req, res) => {
-    const allOrders = storage.getOrders();
-    const allCustomers = storage.getCustomers();
-    const allDrivers = storage.getDrivers();
-    const allVendors = storage.getVendors();
+  app.get("/api/analytics/overview", requireAdmin, async (_req, res) => {
+    const allOrders = await storage.getOrders();
+    const allCustomers = await storage.getCustomers();
+    const allDrivers = await storage.getDrivers();
+    const allVendors = await storage.getVendors();
 
     // Revenue trends (weekly for last 12 weeks)
     const weeklyRevenue: { week: string; revenue: number }[] = [];

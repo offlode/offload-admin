@@ -8,205 +8,209 @@ import {
   type PromoCode, type InsertPromoCode, type Transaction, type Review,
   type PlatformSetting, type CommunicationLogEntry,
 } from "@shared/schema";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import Database from "better-sqlite3";
-import { eq, desc, asc, like, and, gte, lte, sql, count } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import { eq, desc, asc, sql } from "drizzle-orm";
 
-// Database path: use SHARED_DB_PATH env var on Render, or fallback to local data.db
-import path from "path";
-import fs from "fs";
-const dbPath = process.env.SHARED_DB_PATH || (process.env.RENDER ? path.resolve("/opt/render/project/src/data.db") : path.resolve(__dirname, "../../offload/data.db"));
-// Ensure the directory exists (fixes Render deploy crash)
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes("localhost") ? false : { rejectUnauthorized: false },
+});
 
-// Ensure password_reset_tokens table exists (migration-safe)
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    token TEXT NOT NULL UNIQUE,
-    expires_at TEXT NOT NULL,
-    used_at TEXT,
-    created_at TEXT NOT NULL
-  )
-`);
-
-export const db = drizzle(sqlite);
+export const db = drizzle(pool);
 
 export interface IStorage {
   // Users
-  getUser(id: number): User | undefined;
-  getUserByUsername(username: string): User | undefined;
-  createUser(user: InsertUser): User;
-  updateUser(id: number, data: Partial<User>): User | undefined;
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   // Customers
-  getCustomers(): Customer[];
-  getCustomer(id: number): Customer | undefined;
-  updateCustomer(id: number, data: Partial<Customer>): Customer | undefined;
+  getCustomers(): Promise<Customer[]>;
+  getCustomer(id: number): Promise<Customer | undefined>;
+  updateCustomer(id: number, data: Partial<Customer>): Promise<Customer | undefined>;
   // Drivers
-  getDrivers(): Driver[];
-  getDriver(id: number): Driver | undefined;
-  updateDriver(id: number, data: Partial<Driver>): Driver | undefined;
+  getDrivers(): Promise<Driver[]>;
+  getDriver(id: number): Promise<Driver | undefined>;
+  updateDriver(id: number, data: Partial<Driver>): Promise<Driver | undefined>;
   // Vendors
-  getVendors(): Vendor[];
-  getVendor(id: number): Vendor | undefined;
-  updateVendor(id: number, data: Partial<Vendor>): Vendor | undefined;
+  getVendors(): Promise<Vendor[]>;
+  getVendor(id: number): Promise<Vendor | undefined>;
+  updateVendor(id: number, data: Partial<Vendor>): Promise<Vendor | undefined>;
   // Orders
-  getOrders(): Order[];
-  getOrder(id: number): Order | undefined;
-  updateOrder(id: number, data: Partial<Order>): Order | undefined;
-  getOrderStatusHistory(orderId: number): any[];
-  getRecentOrders(limit: number): Order[];
+  getOrders(): Promise<Order[]>;
+  getOrder(id: number): Promise<Order | undefined>;
+  updateOrder(id: number, data: Partial<Order>): Promise<Order | undefined>;
+  getOrderStatusHistory(orderId: number): Promise<any[]>;
+  getRecentOrders(limit: number): Promise<Order[]>;
   // Reviews
-  getReviews(): Review[];
+  getReviews(): Promise<Review[]>;
   // Disputes
-  getDisputes(): Dispute[];
-  getDispute(id: number): Dispute | undefined;
-  updateDispute(id: number, data: Partial<Dispute>): Dispute | undefined;
+  getDisputes(): Promise<Dispute[]>;
+  getDispute(id: number): Promise<Dispute | undefined>;
+  updateDispute(id: number, data: Partial<Dispute>): Promise<Dispute | undefined>;
   // Promo Codes
-  getPromoCodes(): PromoCode[];
-  createPromoCode(data: InsertPromoCode): PromoCode;
-  updatePromoCode(id: number, data: Partial<PromoCode>): PromoCode | undefined;
+  getPromoCodes(): Promise<PromoCode[]>;
+  createPromoCode(data: InsertPromoCode): Promise<PromoCode>;
+  updatePromoCode(id: number, data: Partial<PromoCode>): Promise<PromoCode | undefined>;
   // Transactions
-  getTransactions(): Transaction[];
+  getTransactions(): Promise<Transaction[]>;
   // Settings
-  getSettings(): PlatformSetting[];
-  updateSetting(key: string, value: string): void;
+  getSettings(): Promise<PlatformSetting[]>;
+  updateSetting(key: string, value: string): Promise<void>;
   // Communication Log
-  getCommunicationLog(customerId: number): CommunicationLogEntry[];
+  getCommunicationLog(customerId: number): Promise<CommunicationLogEntry[]>;
   // Analytics / KPIs
-  getKPIs(): any;
-  getRevenueByDay(days: number): any[];
-  getOrdersByStatus(): any[];
+  getKPIs(): Promise<any>;
+  getRevenueByDay(days: number): Promise<any[]>;
+  getOrdersByStatus(): Promise<any[]>;
   // Password Reset Tokens
-  createPasswordResetToken(userId: number, token: string, expiresAt: string): any;
-  getPasswordResetToken(token: string): any | undefined;
-  markPasswordResetTokenUsed(token: string): void;
-  cleanExpiredResetTokens(): void;
-  // User lookup by username (for forgot-password accepting email or username)
-  getAllUsers(): User[];
+  createPasswordResetToken(userId: number, token: string, expiresAt: string): Promise<any>;
+  getPasswordResetToken(token: string): Promise<any | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+  cleanExpiredResetTokens(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
-  getUser(id: number): User | undefined {
-    return db.select().from(users).where(eq(users.id, id)).get();
+  async getUser(id: number): Promise<User | undefined> {
+    const rows = await db.select().from(users).where(eq(users.id, id));
+    return rows[0];
   }
-  getUserByUsername(username: string): User | undefined {
-    return db.select().from(users).where(eq(users.username, username)).get();
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const rows = await db.select().from(users).where(eq(users.username, username));
+    return rows[0];
   }
-  createUser(insertUser: InsertUser): User {
-    return db.insert(users).values(insertUser).returning().get();
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const rows = await db.select().from(users).where(eq(users.email, email));
+    return rows[0];
   }
-  updateUser(id: number, data: Partial<User>): User | undefined {
-    return db.update(users).set(data).where(eq(users.id, id)).returning().get();
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const rows = await db.insert(users).values(insertUser).returning();
+    return rows[0];
+  }
+  async updateUser(id: number, data: Partial<User>): Promise<User | undefined> {
+    const rows = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return rows[0];
+  }
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.id));
   }
 
   // Customers
-  getCustomers(): Customer[] {
-    return db.select().from(customers).orderBy(desc(customers.id)).all();
+  async getCustomers(): Promise<Customer[]> {
+    return db.select().from(customers).orderBy(desc(customers.id));
   }
-  getCustomer(id: number): Customer | undefined {
-    return db.select().from(customers).where(eq(customers.id, id)).get();
+  async getCustomer(id: number): Promise<Customer | undefined> {
+    const rows = await db.select().from(customers).where(eq(customers.id, id));
+    return rows[0];
   }
-  updateCustomer(id: number, data: Partial<Customer>): Customer | undefined {
-    return db.update(customers).set(data).where(eq(customers.id, id)).returning().get();
+  async updateCustomer(id: number, data: Partial<Customer>): Promise<Customer | undefined> {
+    const rows = await db.update(customers).set(data).where(eq(customers.id, id)).returning();
+    return rows[0];
   }
 
   // Drivers
-  getDrivers(): Driver[] {
-    return db.select().from(drivers).orderBy(desc(drivers.id)).all();
+  async getDrivers(): Promise<Driver[]> {
+    return db.select().from(drivers).orderBy(desc(drivers.id));
   }
-  getDriver(id: number): Driver | undefined {
-    return db.select().from(drivers).where(eq(drivers.id, id)).get();
+  async getDriver(id: number): Promise<Driver | undefined> {
+    const rows = await db.select().from(drivers).where(eq(drivers.id, id));
+    return rows[0];
   }
-  updateDriver(id: number, data: Partial<Driver>): Driver | undefined {
-    return db.update(drivers).set(data).where(eq(drivers.id, id)).returning().get();
+  async updateDriver(id: number, data: Partial<Driver>): Promise<Driver | undefined> {
+    const rows = await db.update(drivers).set(data).where(eq(drivers.id, id)).returning();
+    return rows[0];
   }
 
   // Vendors
-  getVendors(): Vendor[] {
-    return db.select().from(vendors).orderBy(desc(vendors.id)).all();
+  async getVendors(): Promise<Vendor[]> {
+    return db.select().from(vendors).orderBy(desc(vendors.id));
   }
-  getVendor(id: number): Vendor | undefined {
-    return db.select().from(vendors).where(eq(vendors.id, id)).get();
+  async getVendor(id: number): Promise<Vendor | undefined> {
+    const rows = await db.select().from(vendors).where(eq(vendors.id, id));
+    return rows[0];
   }
-  updateVendor(id: number, data: Partial<Vendor>): Vendor | undefined {
-    return db.update(vendors).set(data).where(eq(vendors.id, id)).returning().get();
+  async updateVendor(id: number, data: Partial<Vendor>): Promise<Vendor | undefined> {
+    const rows = await db.update(vendors).set(data).where(eq(vendors.id, id)).returning();
+    return rows[0];
   }
 
   // Orders
-  getOrders(): Order[] {
-    return db.select().from(orders).orderBy(desc(orders.createdAt)).all();
+  async getOrders(): Promise<Order[]> {
+    return db.select().from(orders).orderBy(desc(orders.createdAt));
   }
-  getOrder(id: number): Order | undefined {
-    return db.select().from(orders).where(eq(orders.id, id)).get();
+  async getOrder(id: number): Promise<Order | undefined> {
+    const rows = await db.select().from(orders).where(eq(orders.id, id));
+    return rows[0];
   }
-  updateOrder(id: number, data: Partial<Order>): Order | undefined {
-    return db.update(orders).set({ ...data, updatedAt: new Date().toISOString() }).where(eq(orders.id, id)).returning().get();
+  async updateOrder(id: number, data: Partial<Order>): Promise<Order | undefined> {
+    const rows = await db.update(orders).set({ ...data, updatedAt: new Date().toISOString() }).where(eq(orders.id, id)).returning();
+    return rows[0];
   }
-  getOrderStatusHistory(orderId: number): any[] {
-    return db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, orderId)).orderBy(asc(orderStatusHistory.changedAt)).all();
+  async getOrderStatusHistory(orderId: number): Promise<any[]> {
+    return db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, orderId)).orderBy(asc(orderStatusHistory.changedAt));
   }
-  getRecentOrders(limit: number): Order[] {
-    return db.select().from(orders).orderBy(desc(orders.createdAt)).limit(limit).all();
+  async getRecentOrders(limit: number): Promise<Order[]> {
+    return db.select().from(orders).orderBy(desc(orders.createdAt)).limit(limit);
   }
 
   // Reviews
-  getReviews(): Review[] {
-    return db.select().from(reviews).orderBy(desc(reviews.createdAt)).all();
+  async getReviews(): Promise<Review[]> {
+    return db.select().from(reviews).orderBy(desc(reviews.createdAt));
   }
 
   // Disputes
-  getDisputes(): Dispute[] {
-    return db.select().from(disputes).orderBy(desc(disputes.createdAt)).all();
+  async getDisputes(): Promise<Dispute[]> {
+    return db.select().from(disputes).orderBy(desc(disputes.createdAt));
   }
-  getDispute(id: number): Dispute | undefined {
-    return db.select().from(disputes).where(eq(disputes.id, id)).get();
+  async getDispute(id: number): Promise<Dispute | undefined> {
+    const rows = await db.select().from(disputes).where(eq(disputes.id, id));
+    return rows[0];
   }
-  updateDispute(id: number, data: Partial<Dispute>): Dispute | undefined {
-    return db.update(disputes).set(data).where(eq(disputes.id, id)).returning().get();
+  async updateDispute(id: number, data: Partial<Dispute>): Promise<Dispute | undefined> {
+    const rows = await db.update(disputes).set(data).where(eq(disputes.id, id)).returning();
+    return rows[0];
   }
 
   // Promo Codes
-  getPromoCodes(): PromoCode[] {
-    return db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt)).all();
+  async getPromoCodes(): Promise<PromoCode[]> {
+    return db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt));
   }
-  createPromoCode(data: InsertPromoCode): PromoCode {
-    return db.insert(promoCodes).values(data).returning().get();
+  async createPromoCode(data: InsertPromoCode): Promise<PromoCode> {
+    const rows = await db.insert(promoCodes).values(data).returning();
+    return rows[0];
   }
-  updatePromoCode(id: number, data: Partial<PromoCode>): PromoCode | undefined {
-    return db.update(promoCodes).set(data).where(eq(promoCodes.id, id)).returning().get();
+  async updatePromoCode(id: number, data: Partial<PromoCode>): Promise<PromoCode | undefined> {
+    const rows = await db.update(promoCodes).set(data).where(eq(promoCodes.id, id)).returning();
+    return rows[0];
   }
 
   // Transactions
-  getTransactions(): Transaction[] {
-    return db.select().from(transactions).orderBy(desc(transactions.createdAt)).all();
+  async getTransactions(): Promise<Transaction[]> {
+    return db.select().from(transactions).orderBy(desc(transactions.createdAt));
   }
 
   // Settings
-  getSettings(): PlatformSetting[] {
-    return db.select().from(platformSettings).all();
+  async getSettings(): Promise<PlatformSetting[]> {
+    return db.select().from(platformSettings);
   }
-  updateSetting(key: string, value: string): void {
-    db.update(platformSettings).set({ value }).where(eq(platformSettings.key, key)).run();
+  async updateSetting(key: string, value: string): Promise<void> {
+    await db.update(platformSettings).set({ value }).where(eq(platformSettings.key, key));
   }
 
   // Communication Log
-  getCommunicationLog(customerId: number): CommunicationLogEntry[] {
-    return db.select().from(communicationLog).where(eq(communicationLog.customerId, customerId)).orderBy(desc(communicationLog.sentAt)).all();
+  async getCommunicationLog(customerId: number): Promise<CommunicationLogEntry[]> {
+    return db.select().from(communicationLog).where(eq(communicationLog.customerId, customerId)).orderBy(desc(communicationLog.sentAt));
   }
 
   // KPIs
-  getKPIs(): any {
-    const allOrders = db.select().from(orders).all();
-    const allCustomers = db.select().from(customers).all();
-    const allDrivers = db.select().from(drivers).all();
-    const allDisputes = db.select().from(disputes).all();
+  async getKPIs(): Promise<any> {
+    const allOrders = await db.select().from(orders);
+    const allCustomers = await db.select().from(customers);
+    const allDrivers = await db.select().from(drivers);
+    const allDisputes = await db.select().from(disputes);
 
     const totalRevenue = allOrders.reduce((sum, o) => sum + o.total, 0);
     const activeOrders = allOrders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length;
@@ -238,12 +242,12 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  getRevenueByDay(days: number): any[] {
+  async getRevenueByDay(days: number): Promise<any[]> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
     const cutoffStr = cutoff.toISOString().split('T')[0];
 
-    const allOrders = db.select().from(orders).all();
+    const allOrders = await db.select().from(orders);
     const map: Record<string, number> = {};
 
     for (let i = 0; i < days; i++) {
@@ -262,8 +266,8 @@ export class DatabaseStorage implements IStorage {
     return Object.entries(map).map(([date, revenue]) => ({ date, revenue: Math.round(revenue * 100) / 100 }));
   }
 
-  getOrdersByStatus(): any[] {
-    const allOrders = db.select().from(orders).all();
+  async getOrdersByStatus(): Promise<any[]> {
+    const allOrders = await db.select().from(orders);
     const statusMap: Record<string, number> = {};
     for (const order of allOrders) {
       statusMap[order.status] = (statusMap[order.status] || 0) + 1;
@@ -272,39 +276,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── Password Reset Tokens ──
-  getUserByEmail(email: string): User | undefined {
-    return db.select().from(users).where(eq(users.email, email)).get();
-  }
-  createPasswordResetToken(userId: number, token: string, expiresAt: string): void {
-    db.insert(passwordResetTokens).values({
-
+  async createPasswordResetToken(userId: number, token: string, expiresAt: string): Promise<void> {
+    await db.insert(passwordResetTokens).values({
       userId,
       token,
       expiresAt,
       createdAt: new Date().toISOString(),
-    }).run();
+    });
   }
-  getPasswordResetToken(token: string): { userId: number; token: string; expiresAt: string; usedAt: string | null } | undefined {
-    return db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token)).get() as any;
+  async getPasswordResetToken(token: string): Promise<{ userId: number; token: string; expiresAt: string; usedAt: string | null } | undefined> {
+    const rows = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return rows[0] as any;
   }
-
-  markPasswordResetTokenUsed(token: string): void {
-    db.update(passwordResetTokens)
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(passwordResetTokens)
       .set({ usedAt: new Date().toISOString() })
-      .where(eq(passwordResetTokens.token, token))
-      .run();
+      .where(eq(passwordResetTokens.token, token));
   }
-
-  cleanExpiredResetTokens(): void {
-    db.delete(passwordResetTokens)
-      .where(sql`${passwordResetTokens.expiresAt} < ${new Date().toISOString()}`)
-      .run();
+  async cleanExpiredResetTokens(): Promise<void> {
+    await db.delete(passwordResetTokens)
+      .where(sql`${passwordResetTokens.expiresAt} < ${new Date().toISOString()}`);
   }
-
-  getAllUsers(): User[] {
-    return db.select().from(users).orderBy(desc(users.id)).all();
-  }
-
 }
 
 export const storage = new DatabaseStorage();
