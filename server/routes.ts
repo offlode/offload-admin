@@ -27,20 +27,26 @@ function generateSessionId(): string {
 async function hashPassword(pw: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex");
   const derivedKey = (await scryptAsync(pw, salt, 64)) as Buffer;
-  return `${salt}:${derivedKey.toString("hex")}`;
+  // Match API format: scrypt:<salt>:<hash> (3 parts)
+  return `scrypt:${salt}:${derivedKey.toString("hex")}`;
 }
 
 async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
-  // Support both new scrypt format (salt:hash) and legacy SHA-256 (64 hex chars)
+  // New API format: scrypt:<salt>:<hash> (preferred — written by main API + bootstrap)
+  if (stored.startsWith("scrypt:")) {
+    const [, salt, hash] = stored.split(":");
+    const derivedKey = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return derivedKey.toString("hex") === hash;
+  }
+  // Legacy admin format: <salt>:<hash> (2 parts) — for old admin-created users
   if (stored.includes(":")) {
     const [salt, hash] = stored.split(":");
     const derivedKey = (await scryptAsync(supplied, salt, 64)) as Buffer;
     return derivedKey.toString("hex") === hash;
-  } else {
-    // Legacy SHA-256 fallback for migration
-    const sha256 = crypto.createHash("sha256").update(supplied).digest("hex");
-    return sha256 === stored;
   }
+  // Legacy SHA-256 fallback for migration
+  const sha256 = crypto.createHash("sha256").update(supplied).digest("hex");
+  return sha256 === stored;
 }
 
 // Clean up expired sessions periodically
