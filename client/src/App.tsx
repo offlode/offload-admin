@@ -29,6 +29,8 @@ import AnalyticsPage from "@/pages/analytics";
 import SettingsPage from "@/pages/settings";
 import NotificationRulesPage from "@/pages/notification-rules";
 import AddOnPricingPage from "@/pages/add-on-pricing";
+import ApplicationsPage from "@/pages/applications";
+import ApplicationDetailPage from "@/pages/application-detail";
 import NotFound from "@/pages/not-found";
 
 function AppRouter() {
@@ -51,6 +53,8 @@ function AppRouter() {
       <Route path="/settings" component={SettingsPage} />
       <Route path="/notification-rules" component={NotificationRulesPage} />
       <Route path="/add-ons" component={AddOnPricingPage} />
+      <Route path="/applications" component={ApplicationsPage} />
+      <Route path="/applications/:id" component={ApplicationDetailPage} />
       <Route component={NotFound} />
     </Switch>
   );

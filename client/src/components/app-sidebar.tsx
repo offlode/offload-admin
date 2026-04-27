@@ -1,8 +1,10 @@
 import {
   LayoutDashboard, ShoppingCart, Users, Truck, Store,
   DollarSign, AlertTriangle, Tag, BarChart3, Settings, LogOut, Bell, Sparkles,
+  ClipboardList,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -18,6 +20,7 @@ const navItems = [
   { title: "Customers", url: "/customers", icon: Users },
   { title: "Drivers", url: "/drivers", icon: Truck },
   { title: "Vendors", url: "/vendors", icon: Store },
+  { title: "Applications", url: "/applications", icon: ClipboardList, badgeKey: "applications" },
   { title: "Financial", url: "/financial", icon: DollarSign },
   { title: "Disputes", url: "/disputes", icon: AlertTriangle },
   { title: "Promos & Loyalty", url: "/promos", icon: Tag },
@@ -30,6 +33,11 @@ const navItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { data: appStats } = useQuery<any>({
+    queryKey: ["/api/admin/partner-applications/stats/summary"],
+    refetchInterval: 60000,
+  });
+  const pendingCount = (appStats?.pending || 0) + (appStats?.autoFlagged || 0);
 
   return (
     <Sidebar>
@@ -57,7 +65,12 @@ export function AppSidebar() {
                     <SidebarMenuButton asChild isActive={isActive}>
                       <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s/g, '-')}`}>
                         <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
+                        <span className="flex-1">{item.title}</span>
+                        {(item as any).badgeKey === "applications" && pendingCount > 0 && (
+                          <span className="ml-auto inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                            {pendingCount}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
