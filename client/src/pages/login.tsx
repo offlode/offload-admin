@@ -162,8 +162,8 @@ export default function LoginPage() {
         <CardHeader className="text-center space-y-3 pb-2">
           {logo}
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Offload Admin</h1>
-            <p className="text-sm text-muted-foreground">Sign in to your admin dashboard</p>
+            <h1 className="text-xl font-semibold tracking-tight">Offload Operations Console</h1>
+            <p className="text-sm text-muted-foreground">CRM, dispatch & business control center for the Offload network</p>
           </div>
         </CardHeader>
         <CardContent>

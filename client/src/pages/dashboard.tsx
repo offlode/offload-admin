@@ -41,8 +41,8 @@ export default function Dashboard() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1400px]">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight" data-testid="text-page-title">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Platform overview and key metrics</p>
+        <h1 className="text-xl font-semibold tracking-tight" data-testid="text-page-title">Operations Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Live snapshot of the Offload network — revenue, orders, customers, drivers, and laundromat partners</p>
       </div>
 
       {/* KPI Cards */}
