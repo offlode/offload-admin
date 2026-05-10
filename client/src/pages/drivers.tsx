@@ -17,7 +17,7 @@ const statusColors: Record<string, string> = {
 export default function DriversPage() {
   const { data: drivers = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/drivers"] });
 
-  const sorted = [...drivers].sort((a, b) => Number(b.rating ?? 0) - Number(a.rating ?? 0));
+  const sorted = [...drivers].sort((a, b) => Number(b.rating ?? b.customerRatingAvg ?? 0) - Number(a.rating ?? a.customerRatingAvg ?? 0));
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1400px]">
@@ -64,11 +64,11 @@ export default function DriversPage() {
               </thead>
               <tbody>
                 {sorted.map((d: any, i: number) => {
-                  const rating = Number(d.rating ?? 0);
-                  const totalTrips = Number(d.totalTrips ?? 0);
+                  const rating = Number(d.rating ?? d.customerRatingAvg ?? 0);
+                  const totalTrips = Number(d.totalTrips ?? d.completedTrips ?? 0);
                   const totalEarnings = Number(d.totalEarnings ?? 0);
-                  const completionRate = Number(d.completionRate ?? 0);
-                  const onTimeRate = Number(d.onTimeRate ?? 0);
+                  const completionRate = Number(d.completionRate ?? 1);
+                  const onTimeRate = Number(d.onTimeRate ?? d.onTimePickupRate ?? 0);
                   const status = d.status || "offline";
                   const name = d.name || `Driver #${d.id}`;
                   const vehicleType = d.vehicleType || "—";

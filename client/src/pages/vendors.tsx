@@ -32,13 +32,23 @@ export default function VendorsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {vendors.map((v: any) => {
-          const health = Number(v.healthScore ?? 0);
-          const quality = Number(v.qualityScore ?? 0);
+          const health = Number(v.healthScore ?? v.aiHealthScore ?? 0);
+          const quality = Number(v.qualityScore ?? v.rating ?? 0);
           const currentLoad = Number(v.currentLoad ?? 0);
           const capacity = Number(v.capacity ?? 0);
-          const totalOrders = Number(v.totalOrders ?? 0);
-          const totalPayout = Number(v.totalPayout ?? 0);
-          const operatingHours = v.operatingHours || "—";
+          const totalOrders = Number(v.totalOrders ?? v.completedOrders ?? 0);
+          const totalPayout = Number(v.totalPayout ?? v.totalEarnings ?? 0);
+          let operatingHours = "—";
+          try {
+            if (typeof v.operatingHours === "string" && v.operatingHours.startsWith("{")) {
+              const oh = JSON.parse(v.operatingHours);
+              operatingHours = oh.mon ? `${oh.mon.open}–${oh.mon.close}` : "Daily";
+            } else if (typeof v.operatingHours === "string") {
+              operatingHours = v.operatingHours;
+            } else if (v.operatingHours && typeof v.operatingHours === "object" && v.operatingHours.mon) {
+              operatingHours = `${v.operatingHours.mon.open}–${v.operatingHours.mon.close}`;
+            }
+          } catch { operatingHours = "—"; }
           const address = v.address || v.location || "—";
           const name = v.name || v.businessName || `Vendor #${v.id}`;
           const status = v.status || "pending";
