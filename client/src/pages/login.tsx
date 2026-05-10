@@ -35,15 +35,16 @@ export default function LoginPage() {
       const res = await apiRequest("POST", "/api/auth/login", { email: username, password });
       const data = await res.json();
       const user = data.user || data;
-      if (!user || !["admin", "manager"].includes(user.role)) {
+      const allowed = ["admin", "manager", "laundromat", "driver"];
+      if (!user || !allowed.includes(user.role)) {
         setAuthToken(null);
-        setError("Access denied. Admin or manager role required.");
+        setError("Access denied. This portal is for staff, partners, and drivers only.");
         return;
       }
       setAuthToken(data.token || null);
       login(user);
     } catch (err: any) {
-      setError(err?.message?.includes("403") ? "Access denied. Admin or manager role required." : "Invalid username or password.");
+      setError(err?.message?.includes("403") ? "Access denied. This portal is for staff, partners, and drivers only." : "Invalid username or password.");
     } finally {
       setLoading(false);
     }

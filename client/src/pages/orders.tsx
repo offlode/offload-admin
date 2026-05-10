@@ -33,7 +33,7 @@ export default function OrdersPage() {
   const exportCSV = () => {
     const headers = "Order,Customer,Status,Service,Total,Date\n";
     const rows = filtered.map(o =>
-      `${o.orderNumber},${o.customerName},${o.status},${o.serviceType},${o.total},${o.createdAt.split('T')[0]}`
+      `${o.orderNumber || o.id},${o.customerName || '—'},${o.status || '—'},${o.serviceType || '—'},${o.total ?? 0},${(o.createdAt || '').split('T')[0] || '—'}`
     ).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);

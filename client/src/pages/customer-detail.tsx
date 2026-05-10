@@ -55,22 +55,22 @@ export default function CustomerDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground mb-1">Total Spend</p>
-          <p className="text-lg font-semibold">{formatCurrency(customer.totalSpend)}</p>
+          <p className="text-lg font-semibold">{formatCurrency(customer.totalSpend ?? customer.totalSpent ?? 0)}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground mb-1">Orders</p>
-          <p className="text-lg font-semibold">{customer.orderCount}</p>
+          <p className="text-lg font-semibold">{customer.orderCount ?? customer.totalOrders ?? 0}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground mb-1">Loyalty Points</p>
-          <p className="text-lg font-semibold">{customer.loyaltyPoints.toLocaleString()}</p>
+          <p className="text-lg font-semibold">{(customer.loyaltyPoints ?? 0).toLocaleString()}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground mb-1">Churn Risk</p>
           <div className="flex items-center gap-2">
             {customer.churnRisk > 0.4 && <AlertTriangle className="h-4 w-4 text-red-500" />}
             <p className={`text-lg font-semibold ${customer.churnRisk > 0.4 ? 'text-red-500' : customer.churnRisk > 0.2 ? 'text-yellow-500' : 'text-green-500'}`}>
-              {(customer.churnRisk * 100).toFixed(0)}%
+              {((customer.churnRisk ?? 0) * 100).toFixed(0)}%
             </p>
           </div>
         </CardContent></Card>
@@ -91,8 +91,8 @@ export default function CustomerDetailPage() {
                 <div><p className="text-muted-foreground text-xs">Phone</p><p>{customer.phone}</p></div>
                 <div><p className="text-muted-foreground text-xs">Address</p><p>{customer.address}</p></div>
                 <div><p className="text-muted-foreground text-xs">Zip Code</p><p>{customer.zipCode}</p></div>
-                <div><p className="text-muted-foreground text-xs">Subscription</p><p className="capitalize">{customer.subscriptionType || "None"}</p></div>
-                <div><p className="text-muted-foreground text-xs">Joined</p><p>{new Date(customer.createdAt).toLocaleDateString()}</p></div>
+                <div><p className="text-muted-foreground text-xs">Subscription</p><p className="capitalize">{customer.subscriptionType ?? customer.subscriptionTier ?? "None"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Joined</p><p>{(() => { const v = customer.createdAt ?? customer.memberSince; if (!v) return "—"; const d = new Date(v); return isNaN(d.getTime()) ? "—" : d.toLocaleDateString(); })()}</p></div>
                 <div><p className="text-muted-foreground text-xs">Last Order</p><p>{customer.lastOrderAt ? new Date(customer.lastOrderAt).toLocaleDateString() : "Never"}</p></div>
               </div>
             </CardContent>

@@ -97,10 +97,10 @@ export default function CustomersPage() {
                       </td>
                       <td className="py-2.5 pr-3 text-muted-foreground">{c.email}</td>
                       <td className="py-2.5 pr-3">
-                        <Badge variant={tierColors[c.tier] as any || "secondary"} className="text-xs capitalize">{c.tier}</Badge>
+                        <Badge variant={tierColors[c.tier ?? c.loyaltyTier] as any || "secondary"} className="text-xs capitalize">{c.tier ?? c.loyaltyTier ?? "—"}</Badge>
                       </td>
-                      <td className="py-2.5 pr-3 text-right font-medium">{formatCurrency(c.totalSpend)}</td>
-                      <td className="py-2.5 pr-3 text-right">{c.orderCount}</td>
+                      <td className="py-2.5 pr-3 text-right font-medium">{formatCurrency(c.totalSpend ?? c.totalSpent ?? 0)}</td>
+                      <td className="py-2.5 pr-3 text-right">{c.orderCount ?? c.totalOrders ?? 0}</td>
                       <td className="py-2.5 pr-3">
                         <div className="flex items-center gap-1.5">
                           {c.churnRisk > 0.4 && <AlertTriangle className="h-3 w-3 text-red-500" />}

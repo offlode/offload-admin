@@ -59,15 +59,19 @@ export default function OrderDetailPage() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Service</span>
-              <Badge variant="outline" className="capitalize">{order.serviceType}</Badge>
+              <Badge variant="outline" className="capitalize">{order.serviceType || "—"}</Badge>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Items</span>
-              <span>{order.itemCount} items ({order.weight?.toFixed(1)} lbs)</span>
+              <span>{order.itemCount ?? 0} items{order.weight ? ` (${Number(order.weight).toFixed(1)} lbs)` : ""}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Payment</span>
+              <Badge variant={order.paymentStatus === "paid" || order.paymentStatus === "succeeded" ? "default" : order.paymentStatus === "failed" ? "destructive" : "secondary"} className="capitalize">{order.paymentStatus || "unpaid"}</Badge>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Created</span>
-              <span>{new Date(order.createdAt).toLocaleString()}</span>
+              <span>{order.createdAt ? new Date(order.createdAt).toLocaleString() : "—"}</span>
             </div>
             {order.promoCode && (
               <div className="flex justify-between">
@@ -92,15 +96,15 @@ export default function OrderDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(order.subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>{formatCurrency(order.deliveryFee)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Platform Fee</span><span>{formatCurrency(order.platformFee)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(order.tax)}</span></div>
-            {order.discount > 0 && (
-              <div className="flex justify-between text-green-600"><span>Discount</span><span>-{formatCurrency(order.discount)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(Number(order.subtotal ?? 0))}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>{formatCurrency(Number(order.deliveryFee ?? 0))}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Platform Fee</span><span>{formatCurrency(Number(order.platformFee ?? 0))}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatCurrency(Number(order.tax ?? 0))}</span></div>
+            {Number(order.discount ?? 0) > 0 && (
+              <div className="flex justify-between text-green-600"><span>Discount</span><span>-{formatCurrency(Number(order.discount ?? 0))}</span></div>
             )}
             <div className="flex justify-between pt-2 border-t font-semibold">
-              <span>Total</span><span>{formatCurrency(order.total)}</span>
+              <span>Total</span><span>{formatCurrency(Number(order.total ?? 0))}</span>
             </div>
           </CardContent>
         </Card>

@@ -17,7 +17,7 @@ const statusColors: Record<string, string> = {
 export default function DriversPage() {
   const { data: drivers = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/drivers"] });
 
-  const sorted = [...drivers].sort((a, b) => b.rating - a.rating);
+  const sorted = [...drivers].sort((a, b) => Number(b.rating ?? 0) - Number(a.rating ?? 0));
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1400px]">
@@ -63,44 +63,55 @@ export default function DriversPage() {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((d: any, i: number) => (
+                {sorted.map((d: any, i: number) => {
+                  const rating = Number(d.rating ?? 0);
+                  const totalTrips = Number(d.totalTrips ?? 0);
+                  const totalEarnings = Number(d.totalEarnings ?? 0);
+                  const completionRate = Number(d.completionRate ?? 0);
+                  const onTimeRate = Number(d.onTimeRate ?? 0);
+                  const status = d.status || "offline";
+                  const name = d.name || `Driver #${d.id}`;
+                  const vehicleType = d.vehicleType || "—";
+                  const licensePlate = d.licensePlate || "—";
+                  return (
                   <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="py-2.5 pr-3 text-muted-foreground font-medium">{i + 1}</td>
                     <td className="py-2.5 pr-3">
                       <Link href={`/drivers/${d.id}`} className="text-primary hover:underline font-medium" data-testid={`link-driver-${d.id}`}>
-                        {d.name}
+                        {name}
                       </Link>
-                      <p className="text-xs text-muted-foreground">{d.vehicleType} · {d.licensePlate}</p>
+                      <p className="text-xs text-muted-foreground">{vehicleType} · {licensePlate}</p>
                     </td>
                     <td className="py-2.5 pr-3">
-                      <Badge variant={statusColors[d.status] as any} className="text-xs capitalize">{d.status}</Badge>
+                      <Badge variant={(statusColors[status] || "outline") as any} className="text-xs capitalize">{status}</Badge>
                     </td>
                     <td className="py-2.5 pr-3">
                       <div className="flex items-center gap-1">
                         <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                        <span className="font-medium">{d.rating.toFixed(1)}</span>
+                        <span className="font-medium">{rating.toFixed(1)}</span>
                       </div>
                     </td>
-                    <td className="py-2.5 pr-3 text-right">{d.totalTrips}</td>
-                    <td className="py-2.5 pr-3 text-right font-medium">{formatCurrency(d.totalEarnings)}</td>
+                    <td className="py-2.5 pr-3 text-right">{totalTrips}</td>
+                    <td className="py-2.5 pr-3 text-right font-medium">{formatCurrency(totalEarnings)}</td>
                     <td className="py-2.5 pr-3">
                       <div className="flex items-center gap-1.5">
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-primary rounded-full" style={{ width: `${d.completionRate * 100}%` }} />
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${completionRate * 100}%` }} />
                         </div>
-                        <span className="text-xs">{(d.completionRate * 100).toFixed(0)}%</span>
+                        <span className="text-xs">{(completionRate * 100).toFixed(0)}%</span>
                       </div>
                     </td>
                     <td className="py-2.5">
                       <div className="flex items-center gap-1.5">
                         <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full ${d.onTimeRate > 0.9 ? 'bg-green-500' : 'bg-yellow-500'}`} style={{ width: `${d.onTimeRate * 100}%` }} />
+                          <div className={`h-full rounded-full ${onTimeRate > 0.9 ? 'bg-green-500' : 'bg-yellow-500'}`} style={{ width: `${onTimeRate * 100}%` }} />
                         </div>
-                        <span className="text-xs">{(d.onTimeRate * 100).toFixed(0)}%</span>
+                        <span className="text-xs">{(onTimeRate * 100).toFixed(0)}%</span>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

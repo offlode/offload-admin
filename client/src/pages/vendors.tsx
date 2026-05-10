@@ -31,31 +31,42 @@ export default function VendorsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {vendors.map((v: any) => (
+        {vendors.map((v: any) => {
+          const health = Number(v.healthScore ?? 0);
+          const quality = Number(v.qualityScore ?? 0);
+          const currentLoad = Number(v.currentLoad ?? 0);
+          const capacity = Number(v.capacity ?? 0);
+          const totalOrders = Number(v.totalOrders ?? 0);
+          const totalPayout = Number(v.totalPayout ?? 0);
+          const operatingHours = v.operatingHours || "—";
+          const address = v.address || v.location || "—";
+          const name = v.name || v.businessName || `Vendor #${v.id}`;
+          const status = v.status || "pending";
+          return (
           <Card key={v.id} className="hover:border-primary/30 transition-colors">
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <Link href={`/vendors/${v.id}`} className="font-medium text-primary hover:underline" data-testid={`link-vendor-${v.id}`}>
-                    {v.name}
+                    {name}
                   </Link>
-                  <p className="text-xs text-muted-foreground mt-0.5">{v.address}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{address}</p>
                 </div>
-                <Badge variant={v.status === "active" ? "default" : v.status === "suspended" ? "destructive" : "secondary"} className="text-xs capitalize">
-                  {v.status}
+                <Badge variant={status === "active" ? "default" : status === "suspended" ? "destructive" : "secondary"} className="text-xs capitalize">
+                  {status}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-3 gap-3 mb-3">
                 <div>
                   <p className="text-xs text-muted-foreground">Health</p>
-                  <div className="flex items-center gap-1" title={`${v.healthScore >= 80 ? 'Good' : v.healthScore >= 60 ? 'Fair' : 'Poor'} — composite of quality, speed & capacity`}>
+                  <div className="flex items-center gap-1" title={`${health >= 80 ? 'Good' : health >= 60 ? 'Fair' : 'Poor'} — composite of quality, speed & capacity`}>
                     <Activity className="h-3 w-3 text-muted-foreground" />
-                    <span className={`text-sm font-semibold ${v.healthScore >= 80 ? 'text-green-500' : v.healthScore >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
-                      {v.healthScore.toFixed(0)}
+                    <span className={`text-sm font-semibold ${health >= 80 ? 'text-green-500' : health >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
+                      {health.toFixed(0)}
                     </span>
-                    <span className={`text-[10px] font-medium ${v.healthScore >= 80 ? 'text-green-500' : v.healthScore >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
-                      {v.healthScore >= 80 ? 'Good' : v.healthScore >= 60 ? 'Fair' : 'Poor'}
+                    <span className={`text-[10px] font-medium ${health >= 80 ? 'text-green-500' : health >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
+                      {health >= 80 ? 'Good' : health >= 60 ? 'Fair' : 'Poor'}
                     </span>
                   </div>
                 </div>
@@ -63,23 +74,23 @@ export default function VendorsPage() {
                   <p className="text-xs text-muted-foreground">Quality</p>
                   <div className="flex items-center gap-1">
                     <Star className="h-3 w-3 text-yellow-500" />
-                    <span className="text-sm font-semibold">{v.qualityScore.toFixed(1)}</span>
+                    <span className="text-sm font-semibold">{quality.toFixed(1)}</span>
                   </div>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Load</p>
-                  <span className="text-sm font-semibold">{v.currentLoad}/{v.capacity}</span>
+                  <span className="text-sm font-semibold">{currentLoad}/{capacity}</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                <span>{v.totalOrders} orders</span>
-                <span>{formatCurrency(v.totalPayout)} paid</span>
-                <span>{v.operatingHours}</span>
+                <span>{totalOrders} orders</span>
+                <span>{formatCurrency(totalPayout)} paid</span>
+                <span>{operatingHours}</span>
               </div>
 
               <div className="flex gap-2">
-                {v.status === "active" ? (
+                {status === "active" ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -105,7 +116,8 @@ export default function VendorsPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

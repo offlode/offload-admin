@@ -27,8 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       })
       .then((data) => {
-        if (data?.user?.id && ["admin", "manager"].includes(data.user.role)) setUser(data.user);
-        else if (data?.id && ["admin", "manager"].includes(data.role)) setUser(data);
+        const allowed = ["admin", "manager", "laundromat", "driver"];
+        if (data?.user?.id && allowed.includes(data.user.role)) setUser(data.user);
+        else if (data?.id && allowed.includes(data.role)) setUser(data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
