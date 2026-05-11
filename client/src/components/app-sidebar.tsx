@@ -28,6 +28,7 @@ const navItems = [
   { title: "Settings", url: "/settings", icon: Settings },
   { title: "Notification Rules", url: "/notification-rules", icon: Bell },
   { title: "Add-on Pricing", url: "/add-ons", icon: Sparkles },
+  { title: "Pricing Config", url: "/pricing-config", icon: DollarSign },
 ];
 
 export function AppSidebar() {
