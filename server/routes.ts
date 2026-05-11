@@ -146,6 +146,12 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
     return;
   }
 
+  // Enforce admin/manager role
+  if (!["admin", "manager"].includes(session.role)) {
+    res.status(403).json({ message: "Forbidden: admin access required" });
+    return;
+  }
+
   // Attach user info to request for downstream use
   (req as any).adminUser = session;
   next();
@@ -218,6 +224,12 @@ export async function registerRoutes(
     if (passwordMatch) {
       // Successful login — reset rate limit
       resetRateLimit(ip);
+
+      // Only admin and manager roles can access admin panel
+      if (!["admin", "manager"].includes(user.role)) {
+        res.status(403).json({ message: "Admin access required" });
+        return;
+      }
 
       // If legacy SHA-256 password, migrate to scrypt on successful login
       if (!user.password.includes(":")) {
