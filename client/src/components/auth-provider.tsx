@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { API_BASE, setAuthToken } from "@/lib/queryClient";
+import { API_BASE, setAuthToken, queryClient, setOnUnauthorized } from "@/lib/queryClient";
 
 interface AuthUser {
   id: number;
@@ -43,7 +43,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
     setAuthToken(null);
     setUser(null);
+    try { queryClient.clear(); } catch {}
   };
+
+  // Global 401 interceptor: server-issued 401 on an authenticated request
+  // wipes local state and redirects to login.
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      try {
+        setAuthToken(null);
+        setUser(null);
+        queryClient.clear();
+      } finally {
+        if (typeof window !== "undefined") {
+          const path = window.location.pathname;
+          if (path !== "/login" && path !== "/") {
+            window.location.href = "/login";
+          }
+        }
+      }
+    });
+    return () => setOnUnauthorized(null);
+  }, []);
 
   return (
     <AuthContext.Provider
