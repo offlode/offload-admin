@@ -21,7 +21,8 @@ export default function PromosPage() {
   const { data: customers = [] } = useQuery<any[]>({ queryKey: ["/api/customers"] });
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [newCode, setNewCode] = useState({ code: "", description: "", discountType: "percentage", discountValue: "", minOrderAmount: "0", maxUses: "" });
+  // Refactor-C1 fix: align with offload server schema (type/value/isActive/usedCount).
+  const [newCode, setNewCode] = useState({ code: "", description: "", type: "percentage", value: "", minOrderAmount: "0", maxUses: "" });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/promo-codes", data),
@@ -66,12 +67,12 @@ export default function PromosPage() {
               <div className="space-y-1.5"><Label>Description</Label><Input value={newCode.description} onChange={e => setNewCode({ ...newCode, description: e.target.value })} placeholder="25% off summer orders" data-testid="input-promo-desc" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Type</Label>
-                  <Select value={newCode.discountType} onValueChange={v => setNewCode({ ...newCode, discountType: v })}>
+                  <Select value={newCode.type} onValueChange={v => setNewCode({ ...newCode, type: v })}>
                     <SelectTrigger data-testid="select-discount-type"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="percentage">Percentage</SelectItem><SelectItem value="fixed">Fixed Amount</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5"><Label>Value</Label><Input type="number" value={newCode.discountValue} onChange={e => setNewCode({ ...newCode, discountValue: e.target.value })} placeholder="25" data-testid="input-discount-value" /></div>
+                <div className="space-y-1.5"><Label>Value</Label><Input type="number" value={newCode.value} onChange={e => setNewCode({ ...newCode, value: e.target.value })} placeholder="25" data-testid="input-discount-value" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Min Order ($)</Label><Input type="number" value={newCode.minOrderAmount} onChange={e => setNewCode({ ...newCode, minOrderAmount: e.target.value })} data-testid="input-min-order" /></div>
@@ -80,16 +81,18 @@ export default function PromosPage() {
               <Button
                 className="w-full"
                 onClick={() => createMutation.mutate({
-                  ...newCode,
-                  discountValue: parseFloat(newCode.discountValue),
+                  code: newCode.code,
+                  description: newCode.description,
+                  type: newCode.type,
+                  value: parseFloat(newCode.value),
                   minOrderAmount: parseFloat(newCode.minOrderAmount) || 0,
                   maxUses: newCode.maxUses ? parseInt(newCode.maxUses) : null,
-                  currentUses: 0,
-                  status: "active",
+                  usedCount: 0,
+                  isActive: true,
                   expiresAt: null,
                   createdAt: new Date().toISOString(),
                 })}
-                disabled={!newCode.code || !newCode.description || !newCode.discountValue}
+                disabled={!newCode.code || !newCode.description || !newCode.value}
                 data-testid="button-submit-promo"
               >
                 Create
@@ -127,21 +130,23 @@ export default function PromosPage() {
                         <td className="py-2.5 pr-3 font-mono font-medium">{p.code}</td>
                         <td className="py-2.5 pr-3 text-muted-foreground text-xs">{p.description}</td>
                         <td className="py-2.5 pr-3 font-medium">
-                          {p.discountType === "percentage" ? `${p.discountValue}%` : formatCurrency(p.discountValue)}
+                          {(p.type ?? p.discountType) === "percentage"
+                            ? `${p.value ?? p.discountValue}%`
+                            : formatCurrency(p.value ?? p.discountValue)}
                         </td>
                         <td className="py-2.5 pr-3 text-xs">
-                          {p.currentUses}{p.maxUses ? `/${p.maxUses}` : ""}
+                          {(p.usedCount ?? p.currentUses ?? 0)}{p.maxUses ? `/${p.maxUses}` : ""}
                         </td>
                         <td className="py-2.5 pr-3">
-                          <Badge variant={p.status === "active" ? "default" : "secondary"} className="text-xs capitalize">{p.status}</Badge>
+                          <Badge variant={(p.isActive ?? (p.status === "active")) ? "default" : "secondary"} className="text-xs capitalize">{(p.isActive ?? (p.status === "active")) ? "Active" : "Inactive"}</Badge>
                         </td>
                         <td className="py-2.5">
-                          {p.status === "active" ? (
-                            <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => updateMutation.mutate({ id: p.id, data: { status: "inactive" } })} data-testid={`button-deactivate-${p.id}`}>
+                          {(p.isActive ?? (p.status === "active")) ? (
+                            <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => updateMutation.mutate({ id: p.id, data: { isActive: false } })} data-testid={`button-deactivate-${p.id}`}>
                               Deactivate
                             </Button>
                           ) : (
-                            <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => updateMutation.mutate({ id: p.id, data: { status: "active" } })} data-testid={`button-activate-${p.id}`}>
+                            <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => updateMutation.mutate({ id: p.id, data: { isActive: true } })} data-testid={`button-activate-${p.id}`}>
                               Activate
                             </Button>
                           )}
@@ -175,7 +180,7 @@ export default function PromosPage() {
             <Card><CardContent className="p-4 text-center">
               <Tag className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">Total Redemptions</p>
-              <p className="text-lg font-semibold">{promoCodes.reduce((s: number, p: any) => s + p.currentUses, 0)}</p>
+              <p className="text-lg font-semibold">{promoCodes.reduce((s: number, p: any) => s + (p.usedCount ?? p.currentUses ?? 0), 0)}</p>
             </CardContent></Card>
           </div>
 
