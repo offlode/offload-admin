@@ -17,7 +17,7 @@ export default function FinancialPage() {
   const { data: orders = [] } = useQuery<any[]>({ queryKey: ["/api/orders"] });
 
   const financials = useMemo(() => {
-    const grossRevenue = transactions.filter(t => t.type === "payment").reduce((s, t) => s + t.amount, 0);
+    const grossRevenue = transactions.filter(t => t.type === "charge").reduce((s, t) => s + t.amount, 0);
     const vendorPayouts = transactions.filter(t => t.type === "payout_vendor").reduce((s, t) => s + t.amount, 0);
     const driverPayouts = transactions.filter(t => t.type === "payout_driver").reduce((s, t) => s + t.amount, 0);
     const platformFees = orders.reduce((s: number, o: any) => s + (o.platformFee || 0), 0);
@@ -40,7 +40,7 @@ export default function FinancialPage() {
     transactions.forEach(t => {
       const key = t.createdAt.substring(0, 7);
       if (months[key]) {
-        if (t.type === "payment") months[key].revenue += t.amount;
+        if (t.type === "charge") months[key].revenue += t.amount;
         if (t.type === "payout_vendor" || t.type === "payout_driver") months[key].payouts += t.amount;
       }
     });

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ShoppingCart, Users, Truck, Store,
   DollarSign, AlertTriangle, Tag, BarChart3, Settings, LogOut, Bell, Sparkles,
-  ClipboardList,
+  ClipboardList, MessageCircle,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -22,6 +22,7 @@ const navItems = [
   { title: "Vendors", url: "/vendors", icon: Store },
   { title: "Applications", url: "/applications", icon: ClipboardList, badgeKey: "applications" },
   { title: "Financial", url: "/financial", icon: DollarSign },
+  { title: "Support", url: "/support", icon: MessageCircle },
   { title: "Disputes", url: "/disputes", icon: AlertTriangle },
   { title: "Promos & Loyalty", url: "/promos", icon: Tag },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
