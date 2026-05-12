@@ -1,6 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-export const API_BASE = "https://api.offloadusa.com";
+// Sandbox builds set VITE_API_BASE to point at the sandbox API.
+// Falls back to production URL when not provided.
+export const API_BASE = (import.meta as any).env?.VITE_API_BASE || "https://api.offloadusa.com";
 let _authToken: string | null = null;
 
 export function setAuthToken(token: string | null) { _authToken = token; }
