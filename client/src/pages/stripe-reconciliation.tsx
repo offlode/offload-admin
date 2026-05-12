@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, CheckCircle, Clock, FileText, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, API_BASE } from "@/lib/queryClient";
 
 interface ReconEntry {
   id: number;
@@ -39,7 +39,7 @@ export default function StripeReconciliationPage() {
     queryKey: ["/api/admin/stripe-reconciliation", page, showResolved],
     queryFn: async () => {
       const res = await fetch(
-        `/api/admin/stripe-reconciliation?page=${page}&limit=25&resolved=${showResolved}`,
+        `${API_BASE}/api/admin/stripe-reconciliation?page=${page}&limit=25&resolved=${showResolved}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to fetch reconciliation entries");
