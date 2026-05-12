@@ -44,7 +44,7 @@
   --chart-3: 213 94% 68%;
   --chart-4: 38 92% 50%;
   --chart-5: 0 84% 60%;
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Montserrat', system-ui, -apple-system, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', monospace;
   --radius: 0.5rem;
@@ -75,10 +75,11 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
-  --background: 0 0% 4%;
+  /* Surfaces — Figma "Offload new version" #1C1C1C base */
+  --background: 0 0% 11%; /* #1C1C1C */
   --foreground: 0 0% 96%;
-  --border: 0 0% 18%;
-  --card: 0 0% 10%;
+  --border: 0 0% 22%;
+  --card: 0 0% 14%;
   --card-foreground: 0 0% 100%;
   --card-border: 0 0% 16%;
   --sidebar: 0 0% 3%;
