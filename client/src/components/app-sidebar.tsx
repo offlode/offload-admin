@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ShoppingCart, Users, Truck, Store,
   DollarSign, AlertTriangle, Tag, BarChart3, Settings, LogOut, Bell, Sparkles,
-  ClipboardList, MessageCircle, FileText, MapPin,
+  ClipboardList, MessageCircle, FileText, MapPin, ClipboardCheck,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +32,7 @@ const navItems = [
   { title: "Notification Rules", url: "/notification-rules", icon: Bell },
   { title: "Add-on Pricing", url: "/add-ons", icon: Sparkles },
   { title: "Pricing Config", url: "/pricing-config", icon: DollarSign },
+  { title: "QA Center", url: "/qa-center", icon: ClipboardCheck },
 ];
 
 export function AppSidebar() {
