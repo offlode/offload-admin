@@ -52,12 +52,19 @@ interface AddOn {
   description: string | null;
   category: string;
   isActive: number;
+  // D10: priceMode controls per-item vs flat per-order pricing
+  priceMode?: string; // "per_item" | "per_order"
 }
 
 const CATEGORIES = [
   { value: "service", label: "Service (express, fold, hang)" },
   { value: "detergent", label: "Detergent (eco, hypoallergenic, fragrance)" },
   { value: "treatment", label: "Treatment (stain, starch, softener)" },
+];
+
+const PRICE_MODES = [
+  { value: "per_order", label: "Per Order (flat fee, charged once)" },
+  { value: "per_item", label: "Per Item (charged per garment/bag)" },
 ];
 
 const blank = (): Partial<AddOn> => ({
@@ -67,6 +74,7 @@ const blank = (): Partial<AddOn> => ({
   description: "",
   category: "service",
   isActive: 1,
+  priceMode: "per_order",
 });
 
 export default function AddOnPricingPage() {
@@ -184,6 +192,7 @@ export default function AddOnPricingPage() {
                   <TableHead>Internal name</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Price</TableHead>
+                  <TableHead>Billing mode</TableHead>
                   <TableHead className="w-[160px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -205,6 +214,11 @@ export default function AddOnPricingPage() {
                         <DollarSign className="h-3 w-3" />
                         {Number(a.price).toFixed(2)}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {a.priceMode === "per_item" ? "per item" : "per order"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
@@ -356,6 +370,30 @@ export default function AddOnPricingPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* D10: priceMode selector */}
+              <div>
+                <Label htmlFor="addon-price-mode">Billing mode</Label>
+                <Select
+                  value={editing.priceMode || "per_order"}
+                  onValueChange={(v) => setEditing({ ...editing, priceMode: v })}
+                >
+                  <SelectTrigger id="addon-price-mode" data-testid="select-addon-price-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRICE_MODES.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Per Order: flat fee charged once regardless of item count.
+                  Per Item: charged per garment or bag (e.g. stain treatment).
+                </p>
               </div>
 
               <div>
