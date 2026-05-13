@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { AlertTriangle, Bot } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 const priorityColors: Record<string, string> = {
   low: "secondary",
