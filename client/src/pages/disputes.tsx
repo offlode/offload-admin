@@ -64,7 +64,6 @@ export default function DisputesPage() {
                   <th className="pb-2 pr-3 font-medium text-muted-foreground text-xs">Type</th>
                   <th className="pb-2 pr-3 font-medium text-muted-foreground text-xs">Priority</th>
                   <th className="pb-2 pr-3 font-medium text-muted-foreground text-xs">Status</th>
-                  <th className="pb-2 pr-3 font-medium text-muted-foreground text-xs">AI Confidence</th>
                   <th className="pb-2 font-medium text-muted-foreground text-xs">Date</th>
                 </tr>
               </thead>
@@ -86,14 +85,6 @@ export default function DisputesPage() {
                     </td>
                     <td className="py-2.5 pr-3">
                       <Badge variant={statusColors[d.status] as any} className="text-xs capitalize">{d.status}</Badge>
-                    </td>
-                    <td className="py-2.5 pr-3">
-                      {d.aiConfidence && (
-                        <div className="flex items-center gap-1">
-                          <Bot className="h-3 w-3 text-primary" />
-                          <span className="text-xs">{(d.aiConfidence * 100).toFixed(0)}%</span>
-                        </div>
-                      )}
                     </td>
                     <td className="py-2.5 text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleDateString()}</td>
                   </tr>

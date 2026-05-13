@@ -98,26 +98,7 @@ export default function DisputeDetailPage() {
           </CardContent>
         </Card>
 
-        {/* AI Suggestion */}
-        <Card className="border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Bot className="h-4 w-4 text-primary" /> AI Analysis
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="p-3 rounded-lg bg-primary/5 text-sm">
-              <p>{dispute.aiSuggestion}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Confidence:</span>
-              <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${(dispute.aiConfidence || 0) * 100}%` }} />
-              </div>
-              <span className="text-xs font-medium">{((dispute.aiConfidence || 0) * 100).toFixed(0)}%</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* AI Analysis card removed — dispute.aiSuggestion / aiConfidence are not populated by any backend route (P17 audit) */}
       </div>
 
       {/* Resolution Workflow */}

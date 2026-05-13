@@ -175,7 +175,7 @@ export default function SupportPage() {
                           {msg.role === "admin"
                             ? msg.adminName || "Admin"
                             : msg.role === "assistant"
-                            ? "AI Assistant"
+                            ? "Virtual Assistant"
                             : "Customer"}
                         </p>
                         <p>{msg.content}</p>
