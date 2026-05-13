@@ -17,8 +17,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Star, Activity, Clock, Package, DollarSign, Percent, MapPin } from "lucide-react";
+import { ArrowLeft, Star, Activity, Clock, Package, DollarSign, Percent, MapPin, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
+
+// ── D7+D8 types ──
+const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+type DayKey = typeof DAYS[number];
+const DAY_LABELS: Record<DayKey, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
+  fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
+interface DayHours { open: string; close: string; closed: boolean; }
+type OperatingHoursState = Record<DayKey, DayHours>;
+
+function defaultHours(): OperatingHoursState {
+  return Object.fromEntries(
+    DAYS.map(d => [d, { open: "08:00", close: "20:00", closed: false }])
+  ) as OperatingHoursState;
+}
+
+function parseOperatingHours(raw: unknown): OperatingHoursState {
+  const base = defaultHours();
+  if (!raw || typeof raw !== "string") return base;
+  try {
+    const parsed = JSON.parse(raw);
+    for (const d of DAYS) {
+      if (parsed[d]) {
+        base[d] = {
+          open: parsed[d].open ?? "08:00",
+          close: parsed[d].close ?? "20:00",
+          closed: !!parsed[d].closed,
+        };
+      }
+    }
+  } catch { /* use defaults */ }
+  return base;
+}
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -59,6 +93,22 @@ export default function VendorDetailPage() {
   const [offersHangDry, setOffersHangDry] = useState<boolean>(false);
   const [serviceAreaDirty, setServiceAreaDirty] = useState<boolean>(false);
 
+  // D7: Business Details state
+  const [businessName, setBusinessName] = useState<string>("");
+  const [contactEmail, setContactEmail] = useState<string>("");
+  const [businessAddress, setBusinessAddress] = useState<string>("");
+  const [businessCity, setBusinessCity] = useState<string>("");
+  const [businessState, setBusinessState] = useState<string>("");
+  const [businessZip, setBusinessZip] = useState<string>("");
+  const [businessLat, setBusinessLat] = useState<string>("");
+  const [businessLng, setBusinessLng] = useState<string>("");
+  const [businessDetailsDirty, setBusinessDetailsDirty] = useState<boolean>(false);
+
+  // D8: Operating Hours state
+  const [operatingHours, setOperatingHours] = useState<OperatingHoursState>(defaultHours());
+  const [adminOverrideOpen, setAdminOverrideOpen] = useState<boolean>(false);
+  const [hoursDirty, setHoursDirty] = useState<boolean>(false);
+
   // Sync service area fields when vendor data loads
   useEffect(() => {
     if (!vendor) return;
@@ -72,6 +122,20 @@ export default function VendorDetailPage() {
     setOffersSteamPress(!!vendor.offersSteamPress);
     setOffersHangDry(!!vendor.offersHangDry);
     setServiceAreaDirty(false);
+    // D7: Business Details
+    setBusinessName(vendor.businessName ?? "");
+    setContactEmail(vendor.contactEmail ?? "");
+    setBusinessAddress(vendor.businessAddress ?? "");
+    setBusinessCity(vendor.businessCity ?? "");
+    setBusinessState(vendor.businessState ?? "");
+    setBusinessZip(vendor.businessZip ?? "");
+    setBusinessLat(vendor.businessLat != null ? String(vendor.businessLat) : "");
+    setBusinessLng(vendor.businessLng != null ? String(vendor.businessLng) : "");
+    setBusinessDetailsDirty(false);
+    // D8: Operating Hours
+    setOperatingHours(parseOperatingHours(vendor.operatingHoursJson));
+    setAdminOverrideOpen(!!vendor.adminOverrideOpen);
+    setHoursDirty(false);
   }, [vendor]);
 
   const updateMutation = useMutation({
@@ -122,6 +186,54 @@ export default function VendorDetailPage() {
       offersStainTreatment: offersStainTreatment ? 1 : 0,
       offersSteamPress: offersSteamPress ? 1 : 0,
       offersHangDry: offersHangDry ? 1 : 0,
+    });
+  }
+
+  // D7: Business Details mutation
+  const businessDetailsMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      apiRequest("PATCH", `/api/vendors/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors", id] });
+      setBusinessDetailsDirty(false);
+      toast({ title: "Business details saved" });
+    },
+    onError: () => {
+      toast({ title: "Failed to save business details", variant: "destructive" });
+    },
+  });
+
+  function handleBusinessDetailsSave() {
+    businessDetailsMutation.mutate({
+      businessName: businessName || null,
+      contactEmail: contactEmail || null,
+      businessAddress: businessAddress || null,
+      businessCity: businessCity || null,
+      businessState: businessState || null,
+      businessZip: businessZip || null,
+      businessLat: businessLat !== "" ? Number(businessLat) : null,
+      businessLng: businessLng !== "" ? Number(businessLng) : null,
+    });
+  }
+
+  // D8: Operating Hours mutation
+  const hoursMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      apiRequest("PATCH", `/api/vendors/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendors", id] });
+      setHoursDirty(false);
+      toast({ title: "Operating hours saved" });
+    },
+    onError: () => {
+      toast({ title: "Failed to save operating hours", variant: "destructive" });
+    },
+  });
+
+  function handleHoursSave() {
+    hoursMutation.mutate({
+      operatingHoursJson: JSON.stringify(operatingHours),
+      adminOverrideOpen: adminOverrideOpen ? 1 : 0,
     });
   }
 
@@ -273,6 +385,204 @@ export default function VendorDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* D7: Business Details */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5" /> Business Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="input-business-name" className="text-xs">Business Name</Label>
+              <Input
+                id="input-business-name"
+                data-testid="input-business-name"
+                className="h-8 text-sm"
+                placeholder="e.g. Sunshine Laundry LLC"
+                value={businessName}
+                onChange={(e) => { setBusinessName(e.target.value); setBusinessDetailsDirty(true); }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="input-contact-email" className="text-xs">Contact Email</Label>
+              <Input
+                id="input-contact-email"
+                data-testid="input-contact-email"
+                type="email"
+                className="h-8 text-sm"
+                placeholder="owner@example.com"
+                value={contactEmail}
+                onChange={(e) => { setContactEmail(e.target.value); setBusinessDetailsDirty(true); }}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="input-business-address" className="text-xs">Business Address</Label>
+              <Input
+                id="input-business-address"
+                data-testid="input-business-address"
+                className="h-8 text-sm"
+                placeholder="123 Main St"
+                value={businessAddress}
+                onChange={(e) => { setBusinessAddress(e.target.value); setBusinessDetailsDirty(true); }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="input-business-city" className="text-xs">City</Label>
+              <Input
+                id="input-business-city"
+                data-testid="input-business-city"
+                className="h-8 text-sm"
+                placeholder="Brooklyn"
+                value={businessCity}
+                onChange={(e) => { setBusinessCity(e.target.value); setBusinessDetailsDirty(true); }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="input-business-state" className="text-xs">State</Label>
+                <Input
+                  id="input-business-state"
+                  data-testid="input-business-state"
+                  className="h-8 text-sm"
+                  placeholder="NY"
+                  maxLength={2}
+                  value={businessState}
+                  onChange={(e) => { setBusinessState(e.target.value.toUpperCase()); setBusinessDetailsDirty(true); }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="input-business-zip" className="text-xs">ZIP</Label>
+                <Input
+                  id="input-business-zip"
+                  data-testid="input-business-zip"
+                  className="h-8 text-sm"
+                  placeholder="11201"
+                  value={businessZip}
+                  onChange={(e) => { setBusinessZip(e.target.value); setBusinessDetailsDirty(true); }}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="input-business-lat" className="text-xs">Latitude <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                id="input-business-lat"
+                data-testid="input-business-lat"
+                type="number"
+                step="any"
+                className="h-8 text-sm"
+                placeholder="40.6782"
+                value={businessLat}
+                onChange={(e) => { setBusinessLat(e.target.value); setBusinessDetailsDirty(true); }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="input-business-lng" className="text-xs">Longitude <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                id="input-business-lng"
+                data-testid="input-business-lng"
+                type="number"
+                step="any"
+                className="h-8 text-sm"
+                placeholder="-73.9442"
+                value={businessLng}
+                onChange={(e) => { setBusinessLng(e.target.value); setBusinessDetailsDirty(true); }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button
+              size="sm"
+              data-testid="button-save-business-details"
+              disabled={!businessDetailsDirty || businessDetailsMutation.isPending}
+              onClick={handleBusinessDetailsSave}
+            >
+              {businessDetailsMutation.isPending ? "Saving…" : "Save Business Details"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* D8: Operating Hours */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" /> Operating Hours
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            {DAYS.map((day) => (
+              <div key={day} className="grid grid-cols-[120px_1fr_1fr_auto] items-center gap-2 text-sm">
+                <span className="text-xs font-medium">{DAY_LABELS[day]}</span>
+                <div className="space-y-0.5">
+                  <Label className="text-xs text-muted-foreground sr-only">Open</Label>
+                  <Input
+                    type="time"
+                    className="h-7 text-xs"
+                    data-testid={`input-hours-open-${day}`}
+                    disabled={operatingHours[day].closed}
+                    value={operatingHours[day].open}
+                    onChange={(e) => {
+                      setOperatingHours(prev => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }));
+                      setHoursDirty(true);
+                    }}
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-xs text-muted-foreground sr-only">Close</Label>
+                  <Input
+                    type="time"
+                    className="h-7 text-xs"
+                    data-testid={`input-hours-close-${day}`}
+                    disabled={operatingHours[day].closed}
+                    value={operatingHours[day].close}
+                    onChange={(e) => {
+                      setOperatingHours(prev => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }));
+                      setHoursDirty(true);
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Checkbox
+                    id={`chk-closed-${day}`}
+                    data-testid={`chk-closed-${day}`}
+                    checked={operatingHours[day].closed}
+                    onCheckedChange={(v) => {
+                      setOperatingHours(prev => ({ ...prev, [day]: { ...prev[day], closed: !!v } }));
+                      setHoursDirty(true);
+                    }}
+                  />
+                  <Label htmlFor={`chk-closed-${day}`} className="text-xs cursor-pointer text-muted-foreground">Closed</Label>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="border-t pt-3 flex items-center gap-2">
+            <Checkbox
+              id="chk-admin-override-open"
+              data-testid="chk-admin-override-open"
+              checked={adminOverrideOpen}
+              onCheckedChange={(v) => { setAdminOverrideOpen(!!v); setHoursDirty(true); }}
+            />
+            <Label htmlFor="chk-admin-override-open" className="text-xs cursor-pointer">
+              Admin Override: Force Open <span className="text-muted-foreground font-normal">(ignores hours above)</span>
+            </Label>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button
+              size="sm"
+              data-testid="button-save-hours"
+              disabled={!hoursDirty || hoursMutation.isPending}
+              onClick={handleHoursSave}
+            >
+              {hoursMutation.isPending ? "Saving…" : "Save Operating Hours"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Service Area & Capabilities */}
       <Card>
