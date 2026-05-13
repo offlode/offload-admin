@@ -34,6 +34,7 @@ import ApplicationDetailPage from "@/pages/application-detail";
 import PricingConfigPage from "@/pages/pricing-config";
 import SupportPage from "@/pages/support";
 import StripeReconciliationPage from "@/pages/stripe-reconciliation";
+import ServiceAreasPage from "@/pages/service-areas";
 import NotFound from "@/pages/not-found";
 
 function AppRouter() {
@@ -61,6 +62,7 @@ function AppRouter() {
       <Route path="/pricing-config" component={PricingConfigPage} />
       <Route path="/support" component={SupportPage} />
       <Route path="/reconciliation" component={StripeReconciliationPage} />
+      <Route path="/service-areas" component={ServiceAreasPage} />
       <Route component={NotFound} />
     </Switch>
   );
