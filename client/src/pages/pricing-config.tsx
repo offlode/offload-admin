@@ -284,6 +284,15 @@ export default function PricingConfigPage() {
 
 // ─── Bag Tier Row (JSON value) ───
 
+// ─── Price validation helper ───
+function validatePrice(val: string, max = 10000): string | null {
+  const n = parseFloat(val);
+  if (val === "" || isNaN(n)) return "Price is required";
+  if (n < 0) return "Price cannot be negative";
+  if (n > max) return `Price too high (max ${max})`;
+  return null;
+}
+
 function BagTierRow({ row, toast }: { row: PricingConfigRow; toast: any }) {
   let parsed: { flatPrice: number; overageRate: number; maxWeight: number } = { flatPrice: 0, overageRate: 0, maxWeight: 0 };
   try { parsed = JSON.parse(row.value); } catch {}
@@ -292,6 +301,17 @@ function BagTierRow({ row, toast }: { row: PricingConfigRow; toast: any }) {
   const [overageRate, setOverageRate] = useState(String(parsed.overageRate));
   const [maxWeight, setMaxWeight] = useState(String(parsed.maxWeight));
   const [confirming, setConfirming] = useState(false);
+
+  const flatPriceError = validatePrice(flatPrice);
+  const overageRateError = validatePrice(overageRate);
+  const maxWeightError = (() => {
+    const n = parseFloat(maxWeight);
+    if (maxWeight === "" || isNaN(n)) return "Weight is required";
+    if (n < 0) return "Weight cannot be negative";
+    if (n > 1000) return "Weight too high";
+    return null;
+  })();
+  const hasErrors = !!(flatPriceError || overageRateError || maxWeightError);
 
   const mutation = useMutation({
     mutationFn: (newValue: string) =>
@@ -324,35 +344,49 @@ function BagTierRow({ row, toast }: { row: PricingConfigRow; toast: any }) {
       <TableRow>
         <TableCell className="font-medium text-sm">{formatKey(row.key)}</TableCell>
         <TableCell>
-          <Input
-            value={flatPrice}
-            onChange={e => setFlatPrice(e.target.value)}
-            className="h-8 w-24"
-            type="number"
-            step="0.01"
-          />
+          <div className="space-y-1">
+            <Input
+              value={flatPrice}
+              onChange={e => setFlatPrice(e.target.value)}
+              className={`h-8 w-24 ${flatPriceError ? "border-red-500" : ""}`}
+              type="number"
+              step="0.01"
+              min="0"
+              max="10000"
+            />
+            {flatPriceError && <p className="text-xs text-red-500">{flatPriceError}</p>}
+          </div>
         </TableCell>
         <TableCell>
-          <Input
-            value={overageRate}
-            onChange={e => setOverageRate(e.target.value)}
-            className="h-8 w-24"
-            type="number"
-            step="0.01"
-          />
+          <div className="space-y-1">
+            <Input
+              value={overageRate}
+              onChange={e => setOverageRate(e.target.value)}
+              className={`h-8 w-24 ${overageRateError ? "border-red-500" : ""}`}
+              type="number"
+              step="0.01"
+              min="0"
+              max="10000"
+            />
+            {overageRateError && <p className="text-xs text-red-500">{overageRateError}</p>}
+          </div>
         </TableCell>
         <TableCell>
-          <Input
-            value={maxWeight}
-            onChange={e => setMaxWeight(e.target.value)}
-            className="h-8 w-24"
-            type="number"
-            step="1"
-          />
+          <div className="space-y-1">
+            <Input
+              value={maxWeight}
+              onChange={e => setMaxWeight(e.target.value)}
+              className={`h-8 w-24 ${maxWeightError ? "border-red-500" : ""}`}
+              type="number"
+              step="1"
+              min="0"
+            />
+            {maxWeightError && <p className="text-xs text-red-500">{maxWeightError}</p>}
+          </div>
         </TableCell>
         <TableCell>
           {hasChanges && (
-            <Button size="sm" onClick={() => setConfirming(true)}>Save</Button>
+            <Button size="sm" onClick={() => setConfirming(true)} disabled={hasErrors}>Save</Button>
           )}
         </TableCell>
       </TableRow>
@@ -402,6 +436,23 @@ function ConfigRow({
     ? parseFloat(val) !== numericVal * 100
     : val !== row.value;
 
+  // Validate the current value
+  const fieldError = (() => {
+    const n = parseFloat(val);
+    if (val === "" || isNaN(n)) return "Value is required";
+    if (format === "currency") {
+      if (n < 0) return "Price cannot be negative";
+      if (n > 10000) return "Price too high (max $10,000)";
+    } else if (format === "percent") {
+      if (n < 0) return "Percentage cannot be negative";
+      if (n > 100) return "Percentage too high (max 100%)";
+    } else {
+      if (n < 0) return "Value cannot be negative";
+      if (n > 10000) return "Value too high";
+    }
+    return null;
+  })();
+
   const mutation = useMutation({
     mutationFn: (newValue: string) =>
       apiRequest("PUT", `/api/admin/pricing-config/${row.key}`, { value: newValue }),
@@ -434,20 +485,23 @@ function ConfigRow({
             {isPercent ? " (%)" : format === "currency" ? " ($)" : ""}
           </Label>
           <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-[200px]">
+            <div className="relative flex-1 max-w-[200px] space-y-1">
               <Input
                 value={val}
                 onChange={e => setVal(e.target.value)}
-                className="h-8"
+                className={`h-8 ${fieldError ? "border-red-500" : ""}`}
                 type="number"
                 step={format === "percent" ? "0.001" : "0.01"}
+                min="0"
+                max={format === "currency" ? "10000" : format === "percent" ? "100" : undefined}
               />
               {isPercent && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                <span className="absolute right-3 top-[9px] text-xs text-muted-foreground">%</span>
               )}
               {format === "currency" && !isPercent && (
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                <span className="absolute left-3 top-[9px] text-xs text-muted-foreground">$</span>
               )}
+              {fieldError && <p className="text-xs text-red-500">{fieldError}</p>}
             </div>
             {row.description && (
               <span className="text-xs text-muted-foreground">{row.description}</span>
@@ -455,7 +509,7 @@ function ConfigRow({
           </div>
         </div>
         {changed && (
-          <Button size="sm" onClick={() => setConfirming(true)}>Save</Button>
+          <Button size="sm" onClick={() => setConfirming(true)} disabled={!!fieldError}>Save</Button>
         )}
       </div>
 

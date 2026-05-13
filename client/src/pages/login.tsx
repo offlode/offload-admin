@@ -30,6 +30,16 @@ export default function LoginPage() {
       return;
     }
 
+    // Email format validation (only when the input looks like an email attempt)
+    const looksLikeEmail = username.includes("@") || username.includes(".");
+    if (looksLikeEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(username.trim())) {
+        setError("Invalid email format. Please enter a valid email address (e.g. you@example.com).");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const res = await apiRequest("POST", "/api/auth/login", { email: username, password });

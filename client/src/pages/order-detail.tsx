@@ -30,6 +30,21 @@ export default function OrderDetailPage() {
     },
   });
 
+  // Statuses that require a driver to be assigned first
+  const DRIVER_REQUIRED_STATUSES = ["pickup_scheduled", "picked_up", "at_vendor", "processing", "ready", "out_for_delivery", "delivered"];
+
+  function handleStatusChange(newStatus: string) {
+    if (DRIVER_REQUIRED_STATUSES.includes(newStatus) && !order?.driverId) {
+      toast({
+        title: "Assign a driver first",
+        description: `Cannot set status to "${newStatus.replace(/_/g, " ")}" without an assigned driver.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    updateMutation.mutate({ status: newStatus });
+  }
+
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
   if (!order) return <div className="p-6 text-muted-foreground">Order not found</div>;
 
@@ -186,7 +201,7 @@ export default function OrderDetailPage() {
             <span className="text-sm text-muted-foreground">Update status:</span>
             <Select
               value={order.status}
-              onValueChange={(v) => updateMutation.mutate({ status: v })}
+              onValueChange={handleStatusChange}
             >
               <SelectTrigger className="w-[200px] h-8" data-testid="select-order-status">
                 <SelectValue />
@@ -200,6 +215,9 @@ export default function OrderDetailPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            {!order.driverId && (
+              <span className="text-xs text-amber-600 font-medium">No driver assigned — status advances will be blocked</span>
+            )}
           </div>
           <div className="space-y-3">
             {order.statusHistory?.map((h: any, i: number) => (

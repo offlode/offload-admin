@@ -23,6 +23,29 @@ export default function PromosPage() {
   const [open, setOpen] = useState(false);
   // Refactor-C1 fix: align with offload server schema (type/value/isActive/usedCount).
   const [newCode, setNewCode] = useState({ code: "", description: "", type: "percentage", value: "", minOrderAmount: "0", maxUses: "" });
+  const [promoErrors, setPromoErrors] = useState<{ code?: string; value?: string }>({});
+
+  function validatePromo() {
+    const errors: { code?: string; value?: string } = {};
+    const code = newCode.code.trim();
+    if (!code) {
+      errors.code = "Code is required";
+    } else if (code.length < 3) {
+      errors.code = "Code must be at least 3 characters";
+    } else if (!/^[A-Z0-9]+$/.test(code)) {
+      errors.code = "Code must be alphanumeric (letters and numbers only)";
+    }
+    const discountVal = parseFloat(newCode.value);
+    if (!newCode.value) {
+      errors.value = "Discount value is required";
+    } else if (isNaN(discountVal) || discountVal <= 0) {
+      errors.value = "Discount must be greater than 0";
+    } else if (newCode.type === "percentage" && discountVal > 100) {
+      errors.value = "Percentage discount cannot exceed 100%";
+    }
+    setPromoErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/promo-codes", data),
@@ -63,7 +86,20 @@ export default function PromosPage() {
           <DialogContent>
             <DialogHeader><DialogTitle>Create Promo Code</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="space-y-1.5"><Label>Code</Label><Input value={newCode.code} onChange={e => setNewCode({ ...newCode, code: e.target.value.toUpperCase() })} placeholder="SUMMER25" data-testid="input-promo-code" /></div>
+              <div className="space-y-1.5">
+                <Label>Code <span className="text-red-500">*</span></Label>
+                <Input
+                  value={newCode.code}
+                  onChange={e => {
+                    setNewCode({ ...newCode, code: e.target.value.toUpperCase() });
+                    setPromoErrors(prev => ({ ...prev, code: undefined }));
+                  }}
+                  placeholder="SUMMER25"
+                  data-testid="input-promo-code"
+                  className={promoErrors.code ? "border-red-500" : ""}
+                />
+                {promoErrors.code && <p className="text-xs text-red-500">{promoErrors.code}</p>}
+              </div>
               <div className="space-y-1.5"><Label>Description</Label><Input value={newCode.description} onChange={e => setNewCode({ ...newCode, description: e.target.value })} placeholder="25% off summer orders" data-testid="input-promo-desc" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Type</Label>
@@ -72,7 +108,22 @@ export default function PromosPage() {
                     <SelectContent><SelectItem value="percentage">Percentage</SelectItem><SelectItem value="fixed">Fixed Amount</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5"><Label>Value</Label><Input type="number" value={newCode.value} onChange={e => setNewCode({ ...newCode, value: e.target.value })} placeholder="25" data-testid="input-discount-value" /></div>
+                <div className="space-y-1.5">
+                  <Label>Value <span className="text-red-500">*</span></Label>
+                  <Input
+                    type="number"
+                    value={newCode.value}
+                    onChange={e => {
+                      setNewCode({ ...newCode, value: e.target.value });
+                      setPromoErrors(prev => ({ ...prev, value: undefined }));
+                    }}
+                    placeholder="25"
+                    min="0.01"
+                    data-testid="input-discount-value"
+                    className={promoErrors.value ? "border-red-500" : ""}
+                  />
+                  {promoErrors.value && <p className="text-xs text-red-500">{promoErrors.value}</p>}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Min Order ($)</Label><Input type="number" value={newCode.minOrderAmount} onChange={e => setNewCode({ ...newCode, minOrderAmount: e.target.value })} data-testid="input-min-order" /></div>
@@ -80,19 +131,21 @@ export default function PromosPage() {
               </div>
               <Button
                 className="w-full"
-                onClick={() => createMutation.mutate({
-                  code: newCode.code,
-                  description: newCode.description,
-                  type: newCode.type,
-                  value: parseFloat(newCode.value),
-                  minOrderAmount: parseFloat(newCode.minOrderAmount) || 0,
-                  maxUses: newCode.maxUses ? parseInt(newCode.maxUses) : null,
-                  usedCount: 0,
-                  isActive: true,
-                  expiresAt: null,
-                  createdAt: new Date().toISOString(),
-                })}
-                disabled={!newCode.code || !newCode.description || !newCode.value}
+                onClick={() => {
+                  if (!validatePromo()) return;
+                  createMutation.mutate({
+                    code: newCode.code,
+                    description: newCode.description,
+                    type: newCode.type,
+                    value: parseFloat(newCode.value),
+                    minOrderAmount: parseFloat(newCode.minOrderAmount) || 0,
+                    maxUses: newCode.maxUses ? parseInt(newCode.maxUses) : null,
+                    usedCount: 0,
+                    isActive: true,
+                    expiresAt: null,
+                    createdAt: new Date().toISOString(),
+                  });
+                }}
                 data-testid="button-submit-promo"
               >
                 Create
