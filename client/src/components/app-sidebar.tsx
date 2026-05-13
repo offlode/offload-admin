@@ -21,6 +21,7 @@ const navItems = [
   { title: "Drivers", url: "/drivers", icon: Truck },
   { title: "Vendors", url: "/vendors", icon: Store },
   { title: "Service Areas", url: "/service-areas", icon: MapPin },
+  { title: "Area Requests", url: "/service-area-requests", icon: MapPin },
   { title: "Applications", url: "/applications", icon: ClipboardList, badgeKey: "applications" },
   { title: "Financial", url: "/financial", icon: DollarSign },
   { title: "Support", url: "/support", icon: MessageCircle },

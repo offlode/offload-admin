@@ -140,7 +140,7 @@ const QA_ITEMS: QAItem[] = [
   {
     title: "Service Area Requests (D4 Leads)",
     description: "Zip-code interest submissions and demand heat-map for expansion planning.",
-    href: "#/service-areas",
+    href: "#/service-area-requests",
     status: "working",
     icon: MapPin,
   },
