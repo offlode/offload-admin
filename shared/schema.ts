@@ -92,6 +92,11 @@ export const vendors = pgTable("vendors", {
   payoutRateCents: integer("payout_rate_cents").notNull().default(0),
   totalEarningsCents: integer("total_earnings_cents").notNull().default(0),
   pendingPayoutCents: integer("pending_payout_cents").notNull().default(0),
+  // Cross-app compat columns (offload references these names)
+  healthScore: doublePrecision("health_score").default(85),
+  totalOrders: integer("total_orders").default(0),
+  totalPayout: doublePrecision("total_payout").default(0),
+  joinedAt: text("joined_at"),
   // AI Scoring
   aiHealthScore: doublePrecision("ai_health_score").default(85), // 0-100
   avgProcessingTime: doublePrecision("avg_processing_time").default(180), // minutes
@@ -346,6 +351,7 @@ export const orders = pgTable("orders", {
   outForDeliveryAt: timestamptz("out_for_delivery_at"),
   deliveredAt: timestamptz("delivered_at"),
   cancelledAt: timestamptz("cancelled_at"),
+  slaCreditIssuedAt: timestamptz("sla_credit_issued_at"),
   createdAt: timestamptz("created_at").notNull(),
   updatedAt: timestamptz("updated_at").notNull(),
 }, (table) => ({
