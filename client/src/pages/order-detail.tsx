@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Clock, MapPin, Package, DollarSign, User, Truck, Store, RotateCcw } from "lucide-react";
 import { StatusBadge } from "./dashboard";
+import { ADMIN_ORDER_STATUS_OPTIONS } from "@/lib/order-status-map";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -88,7 +89,7 @@ export default function OrderDetailPage() {
   });
 
   // Statuses that require a driver to be assigned first
-  const DRIVER_REQUIRED_STATUSES = ["pickup_scheduled", "picked_up", "at_vendor", "processing", "ready", "out_for_delivery", "delivered"];
+  const DRIVER_REQUIRED_STATUSES = ["scheduled", "picked_up", "at_facility", "processing", "ready_for_delivery", "driver_en_route_delivery", "delivered"];
 
   function handleStatusChange(newStatus: string) {
     if (DRIVER_REQUIRED_STATUSES.includes(newStatus) && !order?.driverId) {
@@ -105,7 +106,7 @@ export default function OrderDetailPage() {
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
   if (!order) return <div className="p-6 text-muted-foreground">Order not found</div>;
 
-  const statusFlow = ["pending", "pickup_scheduled", "picked_up", "at_vendor", "processing", "ready", "out_for_delivery", "delivered"];
+  const statusFlow = ADMIN_ORDER_STATUS_OPTIONS.filter(option => option.value !== "cancelled");
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1200px]">

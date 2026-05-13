@@ -106,7 +106,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 text-sm">
                   <div>
                     <p className="font-medium">Production API Key</p>
-                    <p className="text-xs text-muted-foreground font-mono">sk_live_•••••••••••••••</p>
+                    <p className="text-xs text-muted-foreground font-mono">Stripe live key hidden</p>
                   </div>
                   <Badge variant="default" className="text-xs">Active</Badge>
                 </div>

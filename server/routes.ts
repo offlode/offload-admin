@@ -484,7 +484,7 @@ export async function registerRoutes(
   });
 
   app.patch("/api/orders/:id", requireAdmin, async (req, res) => {
-    const updated = await storage.updateOrder(Number(String(req.params.id)), req.body);
+    const updated = await storage.updateOrder(Number(String(req.params.id)), normalizeOrderStatusPatch(req.body));
     if (!updated) return res.status(404).json({ message: "Order not found" });
     res.json(updated);
   });
@@ -578,7 +578,7 @@ export async function registerRoutes(
           const d = new Date(o.createdAt);
           return d >= weekStart && d < weekEnd;
         })
-        .reduce((sum, o) => sum + o.total, 0);
+        .reduce((sum, o) => sum + (o.total || 0), 0);
       weeklyRevenue.push({
         week: weekStart.toISOString().split('T')[0],
         revenue: Math.round(revenue * 100) / 100,
@@ -588,7 +588,8 @@ export async function registerRoutes(
     // Top zip codes
     const zipMap: Record<string, number> = {};
     allOrders.forEach(o => {
-      zipMap[o.zipCode] = (zipMap[o.zipCode] || 0) + 1;
+      const zip = (o as any).zipCode || (o as any).pickupZip || "unknown";
+      zipMap[zip] = (zipMap[zip] || 0) + 1;
     });
     const topZips = Object.entries(zipMap)
       .sort((a, b) => b[1] - a[1])
@@ -598,24 +599,25 @@ export async function registerRoutes(
     // Customer tier breakdown
     const tierBreakdown: Record<string, number> = {};
     allCustomers.forEach(c => {
-      tierBreakdown[c.tier] = (tierBreakdown[c.tier] || 0) + 1;
+      const tier = (c as any).tier || (c as any).loyaltyTier || "standard";
+      tierBreakdown[tier] = (tierBreakdown[tier] || 0) + 1;
     });
 
     // Driver utilization
     const driverUtilization = allDrivers.map(d => ({
       name: d.name,
-      trips: d.totalTrips,
+      trips: (d as any).totalTrips ?? d.completedTrips ?? d.todayTrips ?? 0,
       rating: d.rating,
-      completionRate: d.completionRate,
+      completionRate: (d as any).completionRate ?? d.onTimePickupRate ?? 0,
       utilization: d.status === "offline" ? 0 : d.status === "busy" ? 0.85 : 0.4,
     }));
 
     // Vendor performance
     const vendorPerformance = allVendors.map(v => ({
       name: v.name,
-      healthScore: v.healthScore,
+      healthScore: (v as any).healthScore ?? v.aiHealthScore ?? 0,
       qualityScore: v.qualityScore,
-      totalOrders: v.totalOrders,
+      totalOrders: (v as any).totalOrders ?? 0,
       avgProcessingTime: v.avgProcessingTime,
     }));
 

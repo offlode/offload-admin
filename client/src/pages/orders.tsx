@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Download } from "lucide-react";
 import { Link } from "wouter";
 import { StatusBadge } from "./dashboard";
+import { ADMIN_ORDER_STATUS_OPTIONS } from "@/lib/order-status-map";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -74,15 +75,9 @@ export default function OrdersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="pickup_scheduled">Pickup Scheduled</SelectItem>
-                <SelectItem value="picked_up">Picked Up</SelectItem>
-                <SelectItem value="at_vendor">At Vendor</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="ready">Ready</SelectItem>
-                <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                {ADMIN_ORDER_STATUS_OPTIONS.map(option => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={serviceFilter} onValueChange={setServiceFilter}>

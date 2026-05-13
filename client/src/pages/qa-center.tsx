@@ -77,7 +77,7 @@ const OWNER_DECISIONS: OwnerDecision[] = [
   { id: "R1", label: "Demo vendor paused on prod (no checkout on fake vendor)", status: "done", note: "Vendor 1 inactive + pauseOrderIntake=1; serviceZips cleared" },
   { id: "R2", label: "Unified pre-launch copy (no transient-error message)", status: "done", note: "Commit 31b1982 — zero-vendor case now shows standard coming-soon copy" },
   { id: "V1", label: "Voice UI honesty — BETA badge + missing-key disclaimer", status: "done", note: "Commit cf2a249" },
-  { id: "V2", label: "Voice live mode (OpenAI key)", status: "external_blocker", note: "OWNER ACTION: add OPENAI_API_KEY on Render sandbox env" },
+  { id: "V2", label: "Voice live mode (OpenAI key)", status: "external_blocker", note: "OWNER ACTION: add the OpenAI API key on Render sandbox env" },
   { id: "M1", label: "Google Cloud Maps allowlist verification", status: "owner_manual", note: "30-sec visual check in Cloud Console" },
   { id: "L1", label: "Loom 1 re-record (NOT PRESS-READY)", status: "owner_manual", note: "Only owner can record" },
   { id: "L2", label: "Loom 2 — keep private (DO NOT SEND)", status: "done", note: "Marked private in this QA Center" },
@@ -234,7 +234,7 @@ const QA_ITEMS: QAItem[] = [
     reality: "sandbox",
     icon: Mic,
     external: true,
-    note: "Add OPENAI_API_KEY to Render env to enable live mode",
+    note: "Add the OpenAI API key to Render env to enable live mode",
   },
 ];
 

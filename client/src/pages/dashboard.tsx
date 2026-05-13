@@ -11,15 +11,20 @@ import {
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { Link } from "wouter";
+import { CANONICAL_TO_ADMIN_ORDER_STATUS } from "@/lib/order-status-map";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "hsl(43, 74%, 49%)",
   pickup_scheduled: "hsl(220, 70%, 50%)",
+  scheduled: "hsl(220, 70%, 50%)",
   picked_up: "hsl(248, 51%, 53%)",
   at_vendor: "hsl(280, 60%, 50%)",
+  at_facility: "hsl(280, 60%, 50%)",
   processing: "hsl(200, 70%, 50%)",
   ready: "hsl(270, 95%, 75%)",
+  ready_for_delivery: "hsl(270, 95%, 75%)",
   out_for_delivery: "hsl(30, 80%, 50%)",
+  driver_en_route_delivery: "hsl(30, 80%, 50%)",
   delivered: "hsl(140, 60%, 40%)",
   cancelled: "hsl(0, 70%, 50%)",
 };
@@ -29,7 +34,8 @@ function formatCurrency(n: number) {
 }
 
 function formatStatus(s: string) {
-  return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  const adminLabel = CANONICAL_TO_ADMIN_ORDER_STATUS[s] ?? s;
+  return adminLabel.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 export default function Dashboard() {
