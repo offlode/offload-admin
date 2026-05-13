@@ -24,6 +24,12 @@ export default function DisputeDetailPage() {
   const [resolution, setResolution] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [resolutionError, setResolutionError] = useState("");
+  const [amountError, setAmountError] = useState("");
+  const [noteError, setNoteError] = useState("");
+
+  // Resolution types that require a monetary amount
+  const AMOUNT_REQUIRED_TYPES = ["credit", "refund", "partial_refund"];
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PATCH", `/api/disputes/${id}`, data),
@@ -149,8 +155,36 @@ export default function DisputeDetailPage() {
                 <Input value={note} onChange={e => setNote(e.target.value)} placeholder="Resolution note..." data-testid="input-resolution-note" />
               </div>
             </div>
+            {resolutionError && <p className="text-xs text-red-500" data-testid="error-resolution">{resolutionError}</p>}
+            {amountError && <p className="text-xs text-red-500" data-testid="error-resolution-amount">{amountError}</p>}
+            {noteError && <p className="text-xs text-red-500" data-testid="error-resolution-note">{noteError}</p>}
             <Button
               onClick={() => {
+                let valid = true;
+                if (!resolution) {
+                  setResolutionError("Please select a resolution type.");
+                  valid = false;
+                } else {
+                  setResolutionError("");
+                }
+                if (AMOUNT_REQUIRED_TYPES.includes(resolution)) {
+                  const amt = parseFloat(amount);
+                  if (!amount || isNaN(amt) || amt <= 0) {
+                    setAmountError(`An amount > $0 is required for ${resolution.replace(/_/g, " ")} resolutions.`);
+                    valid = false;
+                  } else {
+                    setAmountError("");
+                  }
+                } else {
+                  setAmountError("");
+                }
+                if (!note.trim()) {
+                  setNoteError("A resolution note is required.");
+                  valid = false;
+                } else {
+                  setNoteError("");
+                }
+                if (!valid) return;
                 updateMutation.mutate({
                   status: "resolved",
                   resolution,
@@ -159,7 +193,6 @@ export default function DisputeDetailPage() {
                   resolvedAt: new Date().toISOString(),
                 });
               }}
-              disabled={!resolution}
               data-testid="button-resolve"
             >
               Resolve Dispute

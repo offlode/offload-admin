@@ -63,6 +63,11 @@ export default function DriversPage() {
                 </tr>
               </thead>
               <tbody>
+                {sorted.length === 0 && (
+                  <tr><td colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
+                    No drivers on the network yet. Driver applications will appear in Partner Applications.
+                  </td></tr>
+                )}
                 {sorted.map((d: any, i: number) => {
                   const rating = Number(d.rating ?? d.customerRatingAvg ?? 0);
                   const totalTrips = Number(d.totalTrips ?? d.completedTrips ?? 0);

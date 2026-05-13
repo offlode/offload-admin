@@ -82,6 +82,9 @@ export default function ApplicationDetailPage() {
   const { toast } = useToast();
   const [declineOpen, setDeclineOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
+  const [declineReasonError, setDeclineReasonError] = useState("");
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveNotes, setApproveNotes] = useState("");
   const [tempPwResult, setTempPwResult] = useState<string | null>(null);
 
   const { data: app, isLoading } = useQuery<any>({
@@ -90,11 +93,13 @@ export default function ApplicationDetailPage() {
 
   const approveMutation = useMutation({
     mutationFn: async () => {
-      const r = await apiRequest("POST", `/api/admin/partner-applications/${params.id}/approve`, {});
+      const r = await apiRequest("POST", `/api/admin/partner-applications/${params.id}/approve`, { notes: approveNotes });
       return r.json();
     },
     onSuccess: (data) => {
       toast({ title: "Approved", description: `Welcome email sent to ${app?.email}.` });
+      setApproveOpen(false);
+      setApproveNotes("");
       if (data?.tempPassword) setTempPwResult(data.tempPassword);
       queryClient.invalidateQueries({ queryKey: [`/api/admin/partner-applications/${params.id}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/partner-applications"] });
@@ -155,13 +160,13 @@ export default function ApplicationDetailPage() {
         {!decided && (
           <div className="flex gap-2">
             <Button
-              onClick={() => approveMutation.mutate()}
+              onClick={() => setApproveOpen(true)}
               disabled={approveMutation.isPending}
               className="bg-green-600 hover:bg-green-700 text-white"
               data-testid="button-approve"
             >
               <CheckCircle2 className="h-4 w-4 mr-1" />
-              {approveMutation.isPending ? "Approving…" : "Approve"}
+              Approve
             </Button>
             <Button
               onClick={() => setDeclineOpen(true)}
@@ -363,7 +368,40 @@ export default function ApplicationDetailPage() {
       )}
 
       {/* Decline modal */}
-      <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
+      {/* Approve confirmation modal */}
+      <Dialog open={approveOpen} onOpenChange={(o) => { setApproveOpen(o); if (!o) setApproveNotes(""); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm approval</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Add internal notes for this approval (optional but recommended for audit trail).
+            </p>
+            <Textarea
+              value={approveNotes}
+              onChange={(e) => setApproveNotes(e.target.value)}
+              placeholder="e.g. Reviewed manually — all documentation verified. High capacity, strong score."
+              rows={4}
+              data-testid="textarea-approve-notes"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setApproveOpen(false); setApproveNotes(""); }}>Cancel</Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => approveMutation.mutate()}
+              disabled={approveMutation.isPending}
+              data-testid="button-confirm-approve"
+            >
+              {approveMutation.isPending ? "Approving…" : "Approve & notify applicant"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Decline modal */}
+      <Dialog open={declineOpen} onOpenChange={(o) => { setDeclineOpen(o); if (!o) { setDeclineReason(""); setDeclineReasonError(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Decline application</DialogTitle>
@@ -374,18 +412,32 @@ export default function ApplicationDetailPage() {
             </p>
             <Textarea
               value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
+              onChange={(e) => { setDeclineReason(e.target.value); if (e.target.value.trim().length >= 10) setDeclineReasonError(""); }}
               placeholder="e.g. Insurance documentation does not meet our minimum coverage requirements."
               rows={5}
               data-testid="textarea-decline-reason"
+              className={declineReasonError ? "border-red-500 focus-visible:ring-red-500" : ""}
             />
+            {declineReasonError && (
+              <p className="text-xs text-red-500" data-testid="error-decline-reason">{declineReasonError}</p>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeclineOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setDeclineOpen(false); setDeclineReason(""); setDeclineReasonError(""); }}>Cancel</Button>
             <Button
               variant="destructive"
-              onClick={() => declineMutation.mutate()}
-              disabled={!declineReason.trim() || declineMutation.isPending}
+              onClick={() => {
+                if (!declineReason.trim()) {
+                  setDeclineReasonError("A decline reason is required.");
+                  return;
+                }
+                if (declineReason.trim().length < 10) {
+                  setDeclineReasonError("Please provide at least 10 characters explaining the reason.");
+                  return;
+                }
+                declineMutation.mutate();
+              }}
+              disabled={declineMutation.isPending}
               data-testid="button-confirm-decline"
             >
               {declineMutation.isPending ? "Sending…" : "Decline & notify applicant"}

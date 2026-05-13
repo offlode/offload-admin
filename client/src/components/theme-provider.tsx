@@ -10,12 +10,16 @@ const ThemeContext = createContext<{
 }>({ theme: "dark", setTheme: () => {} });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() =>
-    window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-  );
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Default to dark — Offload brand is dark-first; respect stored preference
+    const stored = typeof localStorage !== "undefined" ? localStorage.getItem("offload-admin-theme") : null;
+    if (stored === "light" || stored === "dark") return stored as Theme;
+    return "dark";
+  });
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
+    try { localStorage.setItem("offload-admin-theme", theme); } catch {}
   }, [theme]);
 
   return (

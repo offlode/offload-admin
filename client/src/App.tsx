@@ -101,7 +101,7 @@ function AuthenticatedApp() {
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30">
+          <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30" style={{borderTop: '2px solid hsl(var(--primary))'}}>
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
           </header>

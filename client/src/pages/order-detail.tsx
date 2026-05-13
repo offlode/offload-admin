@@ -1,13 +1,18 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Clock, MapPin, Package, DollarSign, User, Truck, Store } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Package, DollarSign, User, Truck, Store, RotateCcw } from "lucide-react";
 import { StatusBadge } from "./dashboard";
 
 function formatCurrency(n: number) {
@@ -20,6 +25,58 @@ export default function OrderDetailPage() {
   const { data: order, isLoading } = useQuery<any>({ queryKey: ["/api/orders", id] });
   const { data: drivers = [] } = useQuery<any[]>({ queryKey: ["/api/drivers"] });
   const { data: vendors = [] } = useQuery<any[]>({ queryKey: ["/api/vendors"] });
+
+  // Refund state
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundAmountError, setRefundAmountError] = useState("");
+  const [refundReasonError, setRefundReasonError] = useState("");
+
+  const refundMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PATCH", `/api/orders/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "Refund issued", description: `$${refundAmount} refund recorded.` });
+      setRefundOpen(false);
+      setRefundAmount("");
+      setRefundReason("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Refund failed", description: err.message || "Try again.", variant: "destructive" });
+    },
+  });
+
+  function handleRefundSubmit() {
+    let valid = true;
+    const amt = parseFloat(refundAmount);
+    if (!refundAmount || isNaN(amt) || amt <= 0) {
+      setRefundAmountError("Enter a valid refund amount greater than $0.");
+      valid = false;
+    } else if (amt > (order?.total ?? 0)) {
+      setRefundAmountError(`Amount cannot exceed order total (${formatCurrency(order?.total ?? 0)}).`);
+      valid = false;
+    } else {
+      setRefundAmountError("");
+    }
+    if (!refundReason.trim()) {
+      setRefundReasonError("A refund reason is required.");
+      valid = false;
+    } else if (refundReason.trim().length < 5) {
+      setRefundReasonError("Please provide at least 5 characters for the reason.");
+      valid = false;
+    } else {
+      setRefundReasonError("");
+    }
+    if (!valid) return;
+    refundMutation.mutate({
+      paymentStatus: "refunded",
+      refundAmount: amt,
+      refundReason: refundReason.trim(),
+      refundedAt: new Date().toISOString(),
+    });
+  }
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PATCH", `/api/orders/${id}`, data),
@@ -189,6 +246,44 @@ export default function OrderDetailPage() {
         </Card>
       </div>
 
+      {/* Refund section — shown when order is delivered/paid and not already refunded */}
+      {(order.paymentStatus === "paid" || order.paymentStatus === "succeeded") && order.paymentStatus !== "refunded" && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <RotateCcw className="h-4 w-4" /> Refund
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Issue a refund for this order. The refund will be recorded and the order payment status updated.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRefundOpen(true)}
+              data-testid="button-issue-refund"
+            >
+              <RotateCcw className="h-4 w-4 mr-1" /> Issue Refund
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {order.paymentStatus === "refunded" && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <RotateCcw className="h-4 w-4" /> Refund
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <Badge variant="secondary">Refunded</Badge>
+            {order.refundAmount && <span className="ml-2 text-muted-foreground">{formatCurrency(order.refundAmount)}</span>}
+            {order.refundReason && <p className="text-xs text-muted-foreground mt-1">{order.refundReason}</p>}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Status Timeline */}
       <Card>
         <CardHeader className="pb-2">
@@ -235,6 +330,59 @@ export default function OrderDetailPage() {
           </div>
         </CardContent>
       </Card>
+      {/* Refund Modal */}
+      <Dialog open={refundOpen} onOpenChange={(o) => { setRefundOpen(o); if (!o) { setRefundAmount(""); setRefundReason(""); setRefundAmountError(""); setRefundReasonError(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Issue Refund</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="refund-amount" className="text-xs">Refund Amount ($) <span className="text-red-500">*</span></Label>
+              <Input
+                id="refund-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                max={order?.total ?? undefined}
+                value={refundAmount}
+                onChange={(e) => { setRefundAmount(e.target.value); setRefundAmountError(""); }}
+                placeholder={`Max ${formatCurrency(order?.total ?? 0)}`}
+                className={refundAmountError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                data-testid="input-refund-amount"
+              />
+              {refundAmountError && (
+                <p className="text-xs text-red-500" data-testid="error-refund-amount">{refundAmountError}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="refund-reason" className="text-xs">Reason <span className="text-red-500">*</span></Label>
+              <Textarea
+                id="refund-reason"
+                value={refundReason}
+                onChange={(e) => { setRefundReason(e.target.value); setRefundReasonError(""); }}
+                placeholder="e.g. Items damaged during processing — customer reported upon delivery."
+                rows={3}
+                className={refundReasonError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                data-testid="textarea-refund-reason"
+              />
+              {refundReasonError && (
+                <p className="text-xs text-red-500" data-testid="error-refund-reason">{refundReasonError}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRefundOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleRefundSubmit}
+              disabled={refundMutation.isPending}
+              data-testid="button-confirm-refund"
+            >
+              {refundMutation.isPending ? "Issuing…" : "Issue Refund"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

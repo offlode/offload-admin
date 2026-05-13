@@ -30,6 +30,13 @@ export default function VendorsPage() {
         <p className="text-sm text-muted-foreground">{vendors.length} laundromat partners</p>
       </div>
 
+      {vendors.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-center border rounded-lg border-dashed border-border">
+          <Store className="h-10 w-10 text-muted-foreground mb-3" />
+          <p className="font-medium text-muted-foreground">No laundromat partners yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Approved vendor applications will appear here.</p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {vendors.map((v: any) => {
           const health = Number(v.healthScore ?? v.aiHealthScore ?? 0);
