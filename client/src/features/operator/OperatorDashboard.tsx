@@ -6,11 +6,11 @@ import { KPICard, SkeletonCard, SectionHeader } from "@/features/shared/componen
 import type { OperatorKPI } from "@/features/shared/types";
 import { Button } from "@/components/ui/button";
 
-const FALLBACK_KPIS: OperatorKPI = {
-  processed_today: 12,
-  currently_washing: 3,
-  avg_wash_time_min: 42,
-  quality_pct: 97,
+const EMPTY_KPIS: OperatorKPI = {
+  processed_today: 0,
+  currently_washing: 0,
+  avg_wash_time_min: 0,
+  quality_pct: 0,
 };
 
 function getGreeting(): string {
@@ -26,10 +26,10 @@ export default function OperatorDashboard() {
 
   const { data: kpis, isLoading } = useQuery<OperatorKPI>({
     queryKey: ["/api/operators/me/kpis"],
-    placeholderData: FALLBACK_KPIS,
+    placeholderData: EMPTY_KPIS,
   });
 
-  const data = kpis ?? FALLBACK_KPIS;
+  const data = kpis ?? EMPTY_KPIS;
 
   return (
     <div className="min-h-screen bg-background p-4 pb-20 max-w-2xl mx-auto">

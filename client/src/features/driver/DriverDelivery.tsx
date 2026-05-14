@@ -41,18 +41,18 @@ interface GeofenceResponse {
   within_geofence: boolean;
 }
 
-// ─── Fallback ───
+// ─── Empty default ───
 
-const FALLBACK_ORDER: DeliveryOrder = {
+const EMPTY_ORDER: DeliveryOrder = {
   id: 0,
   order_number: "---",
-  customer_name: "Loading...",
+  customer_name: "",
   customer_phone: "",
   pickup_address: "",
   delivery_address: "",
   status: "pending",
   display_status: "Pending",
-  bags: 1,
+  bags: 0,
   notes: "",
 };
 
@@ -224,10 +224,10 @@ export default function DriverDelivery() {
   const { data: order, isLoading } = useQuery<DeliveryOrder>({
     queryKey: ["/api/orders", orderId],
     enabled: !!orderId,
-    select: (data) => data ?? FALLBACK_ORDER,
+    select: (data) => data ?? EMPTY_ORDER,
   });
 
-  const currentOrder = order ?? FALLBACK_ORDER;
+  const currentOrder = order ?? EMPTY_ORDER;
 
   // ─── Mutations ───
 
@@ -256,9 +256,9 @@ export default function DriverDelivery() {
 
   const deliveryMutation = useMutation({
     mutationFn: async (payload: {
-      photo: string;
+      photo_url: string;
       notes: string;
-      signature?: string;
+      signature_data?: string;
     }) => {
       const res = await apiRequest("POST", `/api/orders/${orderId}/delivered`, payload);
       return res.json();
@@ -340,9 +340,9 @@ export default function DriverDelivery() {
     }
 
     deliveryMutation.mutate({
-      photo: photoPreview,
+      photo_url: photoPreview,
       notes,
-      signature: signatureDataUrl ?? undefined,
+      signature_data: signatureDataUrl ?? undefined,
     });
   }, [photoPreview, notes, signatureDataUrl, deliveryMutation, toast]);
 

@@ -25,9 +25,9 @@ interface VehicleProfile {
   photo_url: string | null;
 }
 
-// ─── Fallback ───
+// ─── Empty default ───
 
-const FALLBACK_VEHICLE: VehicleProfile = {
+const EMPTY_VEHICLE: VehicleProfile = {
   color: "",
   model: "",
   license_plate: "",
@@ -52,7 +52,7 @@ export default function DriverVehicle() {
   // Fetch vehicle profile
   const { data: vehicle, isLoading } = useQuery<VehicleProfile>({
     queryKey: ["/api/drivers/me/vehicle"],
-    select: (data) => data ?? FALLBACK_VEHICLE,
+    select: (data) => data ?? EMPTY_VEHICLE,
   });
 
   // Sync form with fetched data once

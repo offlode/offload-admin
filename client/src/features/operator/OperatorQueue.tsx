@@ -31,76 +31,23 @@ const FILTER_TABS = [
   { key: "washing", label: "Washing" },
 ];
 
-// ─── Demo data ───
-const DEMO_QUEUE: QueueOrder[] = [
-  {
-    id: 101,
-    order_number: "ORD-2024-0101",
-    customer_name: "Maria Santos",
-    bags: [
-      { size: "Large", weight_lbs: null },
-      { size: "Medium", weight_lbs: null },
-    ],
-    status: "at_facility",
-    display_status: "At Facility",
-    created_at: "2024-12-20T10:00:00Z",
-  },
-  {
-    id: 102,
-    order_number: "ORD-2024-0102",
-    customer_name: "James Chen",
-    bags: [{ size: "Large", weight_lbs: 12.5 }],
-    status: "washing",
-    display_status: "Washing",
-    created_at: "2024-12-20T09:30:00Z",
-  },
-  {
-    id: 103,
-    order_number: "ORD-2024-0103",
-    customer_name: "Aisha Johnson",
-    bags: [
-      { size: "Small", weight_lbs: 5.0 },
-      { size: "Small", weight_lbs: 4.5 },
-      { size: "Medium", weight_lbs: null },
-    ],
-    status: "at_facility",
-    display_status: "At Facility",
-    created_at: "2024-12-20T11:00:00Z",
-  },
-  {
-    id: 104,
-    order_number: "ORD-2024-0104",
-    customer_name: "David Park",
-    bags: [{ size: "Medium", weight_lbs: 8.2 }],
-    status: "washing",
-    display_status: "Washing",
-    created_at: "2024-12-20T08:15:00Z",
-  },
-  {
-    id: 105,
-    order_number: "ORD-2024-0105",
-    customer_name: "Elena Rodriguez",
-    bags: [
-      { size: "Large", weight_lbs: null },
-      { size: "Large", weight_lbs: null },
-    ],
-    status: "at_facility",
-    display_status: "At Facility",
-    created_at: "2024-12-20T11:30:00Z",
-  },
-];
 
 export default function OperatorQueue() {
   const [, navigate] = useLocation();
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
 
+  const statusParam = activeFilter !== "all" ? `?status=${activeFilter}` : "";
   const { data: queue, isLoading } = useQuery<QueueOrder[]>({
-    queryKey: ["/api/wash-queue"],
-    placeholderData: DEMO_QUEUE,
+    queryKey: ["/api/wash-queue", activeFilter],
+    queryFn: async () => {
+      const { apiRequest } = await import("@/lib/queryClient");
+      const res = await apiRequest("GET", `/api/wash-queue${statusParam}`);
+      return res.json();
+    },
   });
 
-  const orders = queue ?? DEMO_QUEUE;
+  const orders = queue ?? [];
 
   // Filter + search
   const filtered = useMemo(() => {

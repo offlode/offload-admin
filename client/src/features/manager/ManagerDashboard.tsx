@@ -23,33 +23,27 @@ interface Notification {
   created_at: string;
 }
 
-// ─── Mock / Fallback Data ───
-const MOCK_VENDOR: VendorProfile = {
-  id: 1,
-  name: "Demo Laundry Co.",
-  location_label: "Brooklyn, NY",
-  certified: true,
-  rating: 4.8,
+// ─── Empty defaults ───
+const EMPTY_VENDOR: VendorProfile = {
+  id: 0,
+  name: "",
+  location_label: "",
+  certified: false,
+  rating: 0,
 };
 
-const MOCK_KPIS: ManagerKPI = {
-  new_orders: 7,
-  active_orders: 12,
-  completed_today: 4,
-  revenue_this_week: 1845,
+const EMPTY_KPIS: ManagerKPI = {
+  new_orders: 0,
+  active_orders: 0,
+  completed_today: 0,
+  revenue_this_week: 0,
 };
 
-const MOCK_PERF: PerformanceSnapshot = {
-  rating: 4.8,
-  on_time_pct: 96,
-  growth_pct: 12,
+const EMPTY_PERF: PerformanceSnapshot = {
+  rating: 0,
+  on_time_pct: 0,
+  growth_pct: 0,
 };
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: 1, title: "New Order #1042", body: "Customer Jane D. placed a pickup order.", read: false, created_at: new Date().toISOString() },
-  { id: 2, title: "Driver Unassigned", body: "Order #1038 needs a driver for delivery.", read: false, created_at: new Date().toISOString() },
-  { id: 3, title: "5-Star Review", body: "You received a 5-star review from Mike R.", read: false, created_at: new Date().toISOString() },
-];
 
 // ─── Greeting helper ───
 function getGreeting(): string {
@@ -65,64 +59,26 @@ export default function ManagerDashboard() {
 
   const { data: vendor, isLoading: vendorLoading } = useQuery<VendorProfile>({
     queryKey: ["/api/vendors/me"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/vendors/me");
-        return await res.json();
-      } catch {
-        return MOCK_VENDOR;
-      }
-    },
   });
 
   const { data: kpis, isLoading: kpiLoading } = useQuery<ManagerKPI>({
     queryKey: ["/api/vendors/me/kpis"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/vendors/me/kpis");
-        return await res.json();
-      } catch {
-        return MOCK_KPIS;
-      }
-    },
   });
 
+  // Performance comes from the same /me endpoint in practice
   const { data: perf } = useQuery<PerformanceSnapshot>({
     queryKey: ["/api/vendors/me/performance"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/vendors/me/performance");
-        return await res.json();
-      } catch {
-        return MOCK_PERF;
-      }
-    },
+    // TODO: backend may fold this into /api/vendors/me response
   });
 
   const { data: notifications } = useQuery<Notification[]>({
-    queryKey: ["/api/notifications", "unread=true"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/notifications?unread=true");
-        return await res.json();
-      } catch {
-        return MOCK_NOTIFICATIONS;
-      }
-    },
+    queryKey: ["/api/notifications?unread=true"],
   });
 
-  const v = vendor ?? MOCK_VENDOR;
-  const k = kpis ?? MOCK_KPIS;
-  const p = perf ?? MOCK_PERF;
-  const notifs = notifications ?? MOCK_NOTIFICATIONS;
+  const v = vendor ?? EMPTY_VENDOR;
+  const k = kpis ?? EMPTY_KPIS;
+  const p = perf ?? EMPTY_PERF;
+  const notifs = notifications ?? [];
 
   return (
     <div className="space-y-6 p-4 max-w-4xl mx-auto">
@@ -221,7 +177,7 @@ export default function ManagerDashboard() {
           }
         />
         {notifs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No new notifications.</p>
+          <p className="text-sm text-muted-foreground">No notifications yet.</p>
         ) : (
           <ul className="space-y-3">
             {notifs.map((n) => (

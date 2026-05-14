@@ -47,11 +47,11 @@ interface DriverJob {
   bags: string;
 }
 
-// ─── Fallback data ───
+// ─── Empty defaults ───
 
-const FALLBACK_PROFILE: DriverProfile = {
+const EMPTY_PROFILE: DriverProfile = {
   id: 0,
-  name: "Driver",
+  name: "",
   status: "offline",
   stats: {
     earned_today: 0,
@@ -60,8 +60,6 @@ const FALLBACK_PROFILE: DriverProfile = {
     trips_completed: 0,
   },
 };
-
-const FALLBACK_JOBS: DriverJob[] = [];
 
 // ─── Greeting helper ───
 
@@ -85,10 +83,10 @@ export default function DriverDashboard() {
     isLoading: profileLoading,
   } = useQuery<DriverProfile>({
     queryKey: ["/api/drivers/me"],
-    select: (data) => data ?? FALLBACK_PROFILE,
+    select: (data) => data ?? EMPTY_PROFILE,
   });
 
-  const profile = driver ?? FALLBACK_PROFILE;
+  const profile = driver ?? EMPTY_PROFILE;
 
   // Fetch driver jobs
   const {
@@ -96,10 +94,10 @@ export default function DriverDashboard() {
     isLoading: jobsLoading,
   } = useQuery<DriverJob[]>({
     queryKey: ["/api/drivers/me/jobs"],
-    select: (data) => data ?? FALLBACK_JOBS,
+    select: (data) => data ?? [],
   });
 
-  const driverJobs = jobs ?? FALLBACK_JOBS;
+  const driverJobs = jobs ?? [];
   const activeJob = driverJobs.find(
     (j) =>
       j.status === "pickup_in_progress" ||

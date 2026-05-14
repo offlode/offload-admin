@@ -34,53 +34,6 @@ const ORDER_TABS = [
 // ─── Sort options ───
 type SortKey = "newest" | "oldest" | "customer_az";
 
-// ─── Mock data ───
-const MOCK_ORDERS: OrderListItem[] = [
-  {
-    id: 1042,
-    order_number: "OFF-1042",
-    customer_name: "Jane Doe",
-    customer_id: 10,
-    bags: JSON.stringify([{ type: "Regular", count: 2 }, { type: "Delicate", count: 1 }]),
-    status: "confirmed",
-    display_status: "Confirmed",
-    created_at: new Date().toISOString(),
-    scheduled_pickup: null,
-    vendor_id: 1,
-    driver_id: null,
-  },
-  {
-    id: 1041,
-    order_number: "OFF-1041",
-    customer_name: "Mike Robinson",
-    customer_id: 11,
-    bags: JSON.stringify([{ type: "Regular", count: 3 }]),
-    status: "washing",
-    display_status: "Washing",
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    scheduled_pickup: null,
-    vendor_id: 1,
-    driver_id: 5,
-  },
-  {
-    id: 1040,
-    order_number: "OFF-1040",
-    customer_name: "Alice Chen",
-    customer_id: 12,
-    bags: JSON.stringify([{ type: "Regular", count: 1 }]),
-    status: "pending",
-    display_status: "Pending",
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    scheduled_pickup: null,
-    vendor_id: 1,
-    driver_id: null,
-  },
-];
-
-const MOCK_DRIVERS: VendorEmployee[] = [
-  { id: 1, vendor_id: 1, user_id: 100, name: "Carlos M.", email: "carlos@example.com", phone: "555-0101", role: "driver", permissions: [], active: true, joined_at: "2024-01-15", last_login_at: null },
-  { id: 2, vendor_id: 1, user_id: 101, name: "Sarah K.", email: "sarah@example.com", phone: "555-0102", role: "driver", permissions: [], active: true, joined_at: "2024-03-01", last_login_at: null },
-];
 
 // ─── Helpers ───
 function parseBagCount(bagsJson: string): number {
@@ -138,31 +91,21 @@ export default function ManagerOrders() {
   // ─── Data fetching ───
   const { data: orders, isLoading } = useQuery<OrderListItem[]>({
     queryKey: ["/api/orders", activeTab],
-    retry: false,
     queryFn: async () => {
-      try {
-        const params = new URLSearchParams({ vendor_id: "me" });
-        if (activeTab === "today") params.set("today", "true");
-        else if (activeTab === "pending") params.set("status", "pending");
-        else if (activeTab === "in_progress") params.set("status", "in_progress");
-        const res = await apiRequest("GET", `/api/orders?${params.toString()}`);
-        return await res.json();
-      } catch {
-        return MOCK_ORDERS;
-      }
+      const params = new URLSearchParams({ vendor_id: "me" });
+      if (activeTab === "today") params.set("today", "true");
+      else if (activeTab === "pending") params.set("status", "pending");
+      else if (activeTab === "in_progress") params.set("status", "in_progress");
+      const res = await apiRequest("GET", `/api/orders?${params.toString()}`);
+      return await res.json();
     },
   });
 
   const { data: drivers } = useQuery<VendorEmployee[]>({
     queryKey: ["/api/vendor-employees", "drivers"],
-    retry: false,
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/vendor-employees?role=driver");
-        return await res.json();
-      } catch {
-        return MOCK_DRIVERS;
-      }
+      const res = await apiRequest("GET", "/api/vendor-employees?role=driver");
+      return await res.json();
     },
   });
 
@@ -198,7 +141,7 @@ export default function ManagerOrders() {
   });
 
   // ─── Filter + Sort ───
-  const filtered = (orders ?? MOCK_ORDERS)
+  const filtered = (orders ?? [])
     .filter((o) => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -326,7 +269,7 @@ export default function ManagerOrders() {
                 <SelectValue placeholder="Choose a driver..." />
               </SelectTrigger>
               <SelectContent>
-                {(drivers ?? MOCK_DRIVERS).filter((d) => d.active).map((d) => (
+                {(drivers ?? []).filter((d: VendorEmployee) => d.active).map((d: VendorEmployee) => (
                   <SelectItem key={d.id} value={String(d.id)}>
                     {d.name}
                   </SelectItem>

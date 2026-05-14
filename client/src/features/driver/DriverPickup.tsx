@@ -44,18 +44,18 @@ interface GeofenceResponse {
   within_geofence: boolean;
 }
 
-// ─── Fallback ───
+// ─── Empty default ───
 
-const FALLBACK_ORDER: PickupOrder = {
+const EMPTY_ORDER: PickupOrder = {
   id: 0,
   order_number: "---",
-  customer_name: "Loading...",
+  customer_name: "",
   customer_phone: "",
   pickup_address: "",
   delivery_address: "",
   status: "pending",
   display_status: "Pending",
-  bags: 1,
+  bags: 0,
   notes: "",
   special_instructions: "",
 };
@@ -99,10 +99,10 @@ export default function DriverPickup() {
   const { data: order, isLoading } = useQuery<PickupOrder>({
     queryKey: ["/api/orders", orderId],
     enabled: !!orderId,
-    select: (data) => data ?? FALLBACK_ORDER,
+    select: (data) => data ?? EMPTY_ORDER,
   });
 
-  const currentOrder = order ?? FALLBACK_ORDER;
+  const currentOrder = order ?? EMPTY_ORDER;
 
   // Sync expected bag count once loaded
   if (order && actualBagCount === 1 && order.bags > 0) {
@@ -135,7 +135,7 @@ export default function DriverPickup() {
   });
 
   const pickupMutation = useMutation({
-    mutationFn: async (payload: { bag_count: number; notes: string; photo: string }) => {
+    mutationFn: async (payload: { bag_count: number; notes: string; photo_url: string }) => {
       const res = await apiRequest("POST", `/api/orders/${orderId}/picked-up`, payload);
       return res.json();
     },
@@ -222,7 +222,7 @@ export default function DriverPickup() {
     pickupMutation.mutate({
       bag_count: actualBagCount,
       notes: fullNotes,
-      photo: photoPreview,
+      photo_url: photoPreview,
     });
   }, [
     photoPreview,

@@ -304,8 +304,8 @@ export default function OrderDetailPage() {
               </SelectTrigger>
               <SelectContent>
                 {statusFlow.map(s => (
-                  <SelectItem key={s} value={s} className="capitalize">
-                    {s.replace(/_/g, " ")}
+                  <SelectItem key={s.value} value={s.value} className="capitalize">
+                    {s.label}
                   </SelectItem>
                 ))}
                 <SelectItem value="cancelled">Cancelled</SelectItem>

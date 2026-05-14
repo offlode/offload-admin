@@ -34,24 +34,16 @@ import {
 } from "@/components/ui/dialog";
 
 // ─── Types ───
-type EmployeeRole = "driver" | "wash_operator" | "manager";
+type EmployeeRole = "driver" | "operator" | "manager";
 
 interface CreateEmployeeForm {
   name: string;
   email: string;
   phone: string;
   role: EmployeeRole;
-  permissions: string[];
+  permissions: number; // bitmask
 }
 
-// ─── Mock data ───
-const MOCK_EMPLOYEES: VendorEmployee[] = [
-  { id: 1, vendor_id: 1, user_id: 100, name: "Carlos Martinez", email: "carlos@example.com", phone: "555-0101", role: "driver", permissions: ["view_orders", "photo_upload"], active: true, joined_at: "2024-01-15T00:00:00Z", last_login_at: "2026-05-14T09:30:00Z" },
-  { id: 2, vendor_id: 1, user_id: 101, name: "Sarah Kim", email: "sarah@example.com", phone: "555-0102", role: "driver", permissions: ["view_orders", "photo_upload"], active: true, joined_at: "2024-03-01T00:00:00Z", last_login_at: "2026-05-13T14:15:00Z" },
-  { id: 3, vendor_id: 1, user_id: 102, name: "James Lee", email: "james@example.com", phone: "555-0103", role: "wash_operator", permissions: ["view_orders", "update_wash_status", "weight_verification", "wash_preferences"], active: true, joined_at: "2024-06-10T00:00:00Z", last_login_at: "2026-05-14T08:00:00Z" },
-  { id: 4, vendor_id: 1, user_id: 103, name: "Maria Garcia", email: "maria@example.com", phone: "555-0104", role: "wash_operator", permissions: ["view_orders", "update_wash_status"], active: true, joined_at: "2025-01-20T00:00:00Z", last_login_at: null },
-  { id: 5, vendor_id: 1, user_id: 104, name: "Alex Thompson", email: "alex@example.com", phone: "555-0105", role: "manager", permissions: ["view_orders", "update_wash_status", "weight_verification", "photo_upload", "wash_preferences"], active: true, joined_at: "2023-11-01T00:00:00Z", last_login_at: "2026-05-14T10:45:00Z" },
-];
 
 // ─── Helpers ───
 function generateTempPassword(): string {
@@ -67,7 +59,7 @@ function getRoleIcon(role: EmployeeRole) {
   switch (role) {
     case "driver":
       return <Truck className="w-4 h-4" />;
-    case "wash_operator":
+    case "operator":
       return <WashingMachine className="w-4 h-4" />;
     case "manager":
       return <Crown className="w-4 h-4" />;
@@ -78,8 +70,8 @@ function getRoleLabel(role: EmployeeRole): string {
   switch (role) {
     case "driver":
       return "Driver";
-    case "wash_operator":
-      return "Wash Operator";
+    case "operator":
+      return "Operator";
     case "manager":
       return "Manager";
   }
@@ -87,9 +79,18 @@ function getRoleLabel(role: EmployeeRole): string {
 
 const ROLE_OPTIONS: { key: EmployeeRole; label: string }[] = [
   { key: "driver", label: "Driver" },
-  { key: "wash_operator", label: "Wash Operator" },
+  { key: "operator", label: "Operator" },
   { key: "manager", label: "Manager" },
 ];
+
+// Permission bitmask helpers
+function hasPermission(bitmask: number, bit: number): boolean {
+  return (bitmask & bit) !== 0;
+}
+
+function toggleBit(bitmask: number, bit: number): number {
+  return bitmask ^ bit;
+}
 
 export default function ManagerEmployees() {
   const { toast } = useToast();
@@ -105,34 +106,32 @@ export default function ManagerEmployees() {
     email: "",
     phone: "",
     role: "driver",
-    permissions: ["view_orders"],
+    permissions: 1, // view_orders by default
   });
 
   // ─── Data ───
   const { data: employees, isLoading } = useQuery<VendorEmployee[]>({
     queryKey: ["/api/vendor-employees"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/vendor-employees");
-        return await res.json();
-      } catch {
-        return MOCK_EMPLOYEES;
-      }
-    },
   });
 
-  const emps = employees ?? MOCK_EMPLOYEES;
+  const emps = employees ?? [];
 
   // ─── Grouped counts ───
   const driverCount = emps.filter((e) => e.role === "driver").length;
-  const operatorCount = emps.filter((e) => e.role === "wash_operator").length;
+  const operatorCount = emps.filter((e) => e.role === "operator").length;
   const managerCount = emps.filter((e) => e.role === "manager").length;
 
   // ─── Mutations ───
   const createMutation = useMutation({
-    mutationFn: async (data: CreateEmployeeForm & { temp_password: string }) => {
-      const res = await apiRequest("POST", "/api/vendor-employees", data);
+    mutationFn: async (data: CreateEmployeeForm & { tempPassword: string }) => {
+      const res = await apiRequest("POST", "/api/vendor-employees", {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+        permissions: data.permissions,
+        tempPassword: data.tempPassword,
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -148,7 +147,7 @@ export default function ManagerEmployees() {
 
   const deactivateMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("PATCH", `/api/vendor-employees/${id}`, { active: false });
+      const res = await apiRequest("PATCH", `/api/vendor-employees/${id}`, { isActive: false });
       return res.json();
     },
     onSuccess: () => {
@@ -177,7 +176,7 @@ export default function ManagerEmployees() {
 
   // ─── Form helpers ───
   function resetForm() {
-    setForm({ name: "", email: "", phone: "", role: "driver", permissions: ["view_orders"] });
+    setForm({ name: "", email: "", phone: "", role: "driver", permissions: 1 });
     setTempPassword("");
     setPasswordCopied(false);
   }
@@ -188,12 +187,10 @@ export default function ManagerEmployees() {
     setAddDialogOpen(true);
   }
 
-  function togglePermission(key: string) {
+  function togglePermission(bit: number) {
     setForm((prev) => ({
       ...prev,
-      permissions: prev.permissions.includes(key)
-        ? prev.permissions.filter((p) => p !== key)
-        : [...prev.permissions, key],
+      permissions: toggleBit(prev.permissions, bit),
     }));
   }
 
@@ -341,7 +338,7 @@ export default function ManagerEmployees() {
       ) : (
         <div>
           {renderGroup("driver", "Drivers")}
-          {renderGroup("wash_operator", "Wash Operators")}
+          {renderGroup("operator", "Operators")}
           {renderGroup("manager", "Managers")}
         </div>
       )}
@@ -431,19 +428,19 @@ export default function ManagerEmployees() {
               </div>
             </div>
 
-            {/* Permissions */}
+            {/* Permissions (bitmask) */}
             <div className="space-y-2">
               <Label>Permissions</Label>
               <div className="space-y-2">
                 {EMPLOYEE_PERMISSIONS.map((perm) => (
-                  <div key={perm.key} className="flex items-center gap-2">
+                  <div key={perm.bit} className="flex items-center gap-2">
                     <Checkbox
-                      id={`perm-${perm.key}`}
-                      checked={form.permissions.includes(perm.key)}
-                      onCheckedChange={() => togglePermission(perm.key)}
+                      id={`perm-${perm.bit}`}
+                      checked={hasPermission(form.permissions, perm.bit)}
+                      onCheckedChange={() => togglePermission(perm.bit)}
                     />
                     <label
-                      htmlFor={`perm-${perm.key}`}
+                      htmlFor={`perm-${perm.bit}`}
                       className="text-sm cursor-pointer"
                     >
                       {perm.label}
@@ -463,7 +460,7 @@ export default function ManagerEmployees() {
               onClick={() =>
                 createMutation.mutate({
                   ...form,
-                  temp_password: tempPassword,
+                  tempPassword,
                 })
               }
             >

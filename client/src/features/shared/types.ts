@@ -48,8 +48,8 @@ export interface VendorEmployee {
   name: string;
   email: string;
   phone: string;
-  role: "driver" | "wash_operator" | "manager";
-  permissions: string[];
+  role: "driver" | "operator" | "manager";
+  permissions: number;
   active: boolean;
   joined_at: string;
   last_login_at: string | null;
@@ -59,47 +59,45 @@ export interface VendorEmployee {
 export interface BankAccount {
   id: number;
   vendor_id: number;
-  bank_name: string;
-  last4: string;
-  masked_routing: string;
+  bankName: string;
+  lastFour: string;
+  accountType: string;
   status: string;
 }
 
 // ─── Bonus Rule ───
 export interface BonusRule {
   id: number;
-  vendor_id: number | null;
-  rule_type: string;
+  name: string;
+  ruleType: string;
   threshold: number;
-  amount_cents: number;
-  active: boolean;
-  description?: string;
+  amountCents: number;
+  isActive: boolean;
+  progress?: number;
 }
 
 // ─── Bonus Payout ───
 export interface BonusPayout {
   id: number;
-  vendor_id: number;
-  rule_id: number;
-  period_start: string;
-  period_end: string;
-  amount_cents: number;
-  triggered_at: string;
+  vendorId: number;
+  ruleId: number;
+  amountCents: number;
+  reason: string;
+  createdAt: string;
 }
 
 // ─── Wash Run ───
 export interface WashRun {
   id: number;
-  order_id: number;
-  operator_id: number;
-  vendor_id: number;
-  start_at: string;
-  duration_min: number;
-  end_at: string | null;
-  completed_at: string | null;
-  photo_urls: string[];
-  notes: string;
+  orderId: number;
   status: "pending" | "in_progress" | "completed";
+  washType: string;
+  clothingCategory: string;
+  weightLbs: number | null;
+  weightAfterLbs: number | null;
+  notes: string;
+  createdAt: string;
+  completedAt: string | null;
 }
 
 // ─── Manager KPI ───
@@ -153,13 +151,13 @@ export interface WashPreferences {
   special_instructions: string;
 }
 
-// ─── Employee Permissions ───
+// ─── Employee Permissions (bitmask) ───
 export const EMPLOYEE_PERMISSIONS = [
-  { key: "view_orders", label: "View Orders" },
-  { key: "update_wash_status", label: "Update Wash Status" },
-  { key: "weight_verification", label: "Weight Verification" },
-  { key: "photo_upload", label: "Photo Upload" },
-  { key: "wash_preferences", label: "Wash Preferences" },
+  { bit: 1, label: "View Orders" },
+  { bit: 2, label: "Update Wash Status" },
+  { bit: 4, label: "Weight Verification" },
+  { bit: 8, label: "Photo Upload" },
+  { bit: 16, label: "Wash Preferences" },
 ] as const;
 
 // ─── Order for list views ───

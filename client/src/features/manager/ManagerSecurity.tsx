@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
+import QRCode from "qrcode";
 import {
   Lock,
   Shield,
@@ -27,11 +28,41 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// ─── QR Code Component ───
+function QRCodeCanvas({ uri }: { uri: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (uri && canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, uri, {
+        width: 192,
+        margin: 2,
+        color: { dark: "#000000", light: "#ffffff" },
+      }).catch(() => {});
+    }
+  }, [uri]);
+
+  if (!uri) {
+    return (
+      <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center border border-border">
+        <p className="text-xs text-muted-foreground">QR Code unavailable</p>
+      </div>
+    );
+  }
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="rounded-lg border border-border"
+    />
+  );
+}
+
 // ─── Types ───
 interface TwoFactorSetup {
-  qr_url: string;
   secret: string;
-  backup_codes: string[];
+  uri: string;
+  backupCodes: string[];
 }
 
 export default function ManagerSecurity() {
@@ -86,24 +117,13 @@ export default function ManagerSecurity() {
       setTwoFaSetup(data);
     },
     onError: () => {
-      // Use mock data as fallback
-      setTwoFaSetup({
-        qr_url: "",
-        secret: "JBSWY3DPEHPK3PXP",
-        backup_codes: [
-          "A1B2-C3D4",
-          "E5F6-G7H8",
-          "J9K0-L1M2",
-          "N3P4-Q5R6",
-          "S7T8-U9V0",
-        ],
-      });
+      toast({ title: "Failed to set up 2FA.", variant: "destructive" });
     },
   });
 
   const verify2faMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/2fa/verify", { code: totpCode });
+      const res = await apiRequest("POST", "/api/2fa/verify", { token: totpCode });
       return res.json();
     },
     onSuccess: () => {
@@ -131,8 +151,7 @@ export default function ManagerSecurity() {
       toast({ title: "Preferences saved." });
     },
     onError: () => {
-      // Show saved anyway for stub
-      toast({ title: "Preferences saved." });
+      toast({ title: "Failed to save preferences.", variant: "destructive" });
     },
   });
 
@@ -143,7 +162,7 @@ export default function ManagerSecurity() {
   async function copyBackupCodes() {
     if (!twoFaSetup) return;
     try {
-      await navigator.clipboard.writeText(twoFaSetup.backup_codes.join("\n"));
+      await navigator.clipboard.writeText(twoFaSetup.backupCodes.join("\n"));
       setBackupCodesCopied(true);
       setTimeout(() => setBackupCodesCopied(false), 2000);
     } catch {
@@ -255,21 +274,12 @@ export default function ManagerSecurity() {
 
         {twoFaSetup && !twoFaEnabled && (
           <div className="space-y-4 max-w-md">
-            {/* QR Code placeholder */}
+            {/* QR Code from URI */}
             <div>
               <p className="text-sm text-muted-foreground mb-2">
                 Scan the QR code with your authenticator app:
               </p>
-              <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center border border-border">
-                {twoFaSetup.qr_url ? (
-                  <img src={twoFaSetup.qr_url} alt="2FA QR Code" className="w-full h-full rounded-lg" />
-                ) : (
-                  <div className="text-center">
-                    <Smartphone className="w-8 h-8 text-muted-foreground mx-auto mb-1" />
-                    <p className="text-xs text-muted-foreground">QR Code</p>
-                  </div>
-                )}
-              </div>
+              <QRCodeCanvas uri={twoFaSetup.uri} />
               <p className="text-xs text-muted-foreground mt-2">
                 Or enter this key manually: <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{twoFaSetup.secret}</code>
               </p>
@@ -279,7 +289,7 @@ export default function ManagerSecurity() {
             <div>
               <p className="text-sm font-medium mb-2">Backup Codes</p>
               <div className="bg-muted rounded-lg p-3 font-mono text-sm space-y-1">
-                {twoFaSetup.backup_codes.map((code, idx) => (
+                {twoFaSetup.backupCodes.map((code, idx) => (
                   <div key={idx}>{code}</div>
                 ))}
               </div>

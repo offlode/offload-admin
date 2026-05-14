@@ -109,32 +109,13 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
   );
 }
 
-// ─── Demo order ───
-
-const DEMO_ORDER: OrderDetail = {
-  id: 101,
-  order_number: "ORD-2024-0101",
-  customer_name: "Maria Santos",
-  status: "at_facility",
-  display_status: "At Facility",
-  bags: [
-    { id: 1, size: "Large", weight_lbs: null },
-    { id: 2, size: "Medium", weight_lbs: null },
-  ],
-  preferences: {
-    detergent: "Standard",
-    water_temp: "Warm",
-    drying: "Tumble dry low",
-    stain_treatment: true,
-    extra_rinse: false,
-    delicate_wash: false,
-    separated: true,
-    clothing_types: ["Shirts", "Pants", "Socks"],
-    special_instructions: "",
-  },
-  separated: true,
-  wash_run_id: null,
-};
+// ─── Wash run type for polling ───
+interface WashRunStatus {
+  id: number;
+  status: string;
+  createdAt: string;
+  completedAt: string | null;
+}
 
 // ─── Main Component ───
 
@@ -159,11 +140,27 @@ export default function OperatorWashRun() {
   // ─── Fetch order ───
   const { data: order, isLoading } = useQuery<OrderDetail>({
     queryKey: ["/api/orders", orderId],
-    placeholderData: DEMO_ORDER,
     enabled: !!orderId,
   });
 
-  const data = order ?? DEMO_ORDER;
+  // Poll wash run status for the countdown timer
+  const { data: washRunData } = useQuery<WashRunStatus>({
+    queryKey: ["/api/wash-runs", washRunId],
+    enabled: !!washRunId && step === 4,
+    refetchInterval: 10000,
+  });
+
+  const data = order ?? {
+    id: 0,
+    order_number: "---",
+    customer_name: "Loading...",
+    status: "pending",
+    display_status: "Pending",
+    bags: [],
+    preferences: null,
+    separated: false,
+    wash_run_id: null,
+  };
 
   // Initialize bag entries when order loads
   useEffect(() => {
@@ -207,10 +204,22 @@ export default function OperatorWashRun() {
   // ─── Mutations ───
   const startWashMutation = useMutation({
     mutationFn: async () => {
+      // Compute total weight from bag entries
+      const totalWeight = Object.values(bagEntries).reduce(
+        (sum, e) => sum + (parseFloat(e.weight) || 0),
+        0
+      );
+      // Determine wash type from preferences or selected types
+      const hasWhites = selectedTypes.has("Whites");
+      const washType = hasWhites ? "hot" : "cold";
+      const clothingCategory = Array.from(selectedTypes).join(", ") || "mixed";
+
       const res = await apiRequest("POST", "/api/wash-runs", {
-        order_id: Number(orderId),
-        duration_min: duration,
-        clothing_types_in_run: Array.from(selectedTypes),
+        orderId: Number(orderId),
+        washType,
+        clothingCategory,
+        weightLbs: totalWeight,
+        notes: `Duration: ${duration}min. Types: ${clothingCategory}`,
       });
       return res.json();
     },
@@ -231,7 +240,17 @@ export default function OperatorWashRun() {
   const completeWashMutation = useMutation({
     mutationFn: async () => {
       const runId = washRunId ?? data.wash_run_id;
-      await apiRequest("POST", `/api/wash-runs/${runId}/complete`);
+      // Step 5 collects the weight; use it or fallback to bag total
+      const afterWeight = finalWeight
+        ? parseFloat(finalWeight)
+        : Object.values(bagEntries).reduce(
+            (sum, e) => sum + (parseFloat(e.weight) || 0),
+            0
+          );
+      await apiRequest("POST", `/api/wash-runs/${runId}/complete`, {
+        weightAfterLbs: afterWeight,
+        folded_photo_url: completedPhoto ? "pending_upload" : undefined,
+      });
     },
     onSuccess: () => {
       setStep(6);
@@ -246,7 +265,8 @@ export default function OperatorWashRun() {
   const verifyWeightMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", `/api/orders/${orderId}/final-weight`, {
-        final_weight_lbs: parseFloat(finalWeight),
+        finalWeightLbs: parseFloat(finalWeight),
+        notes: "Weight within tolerance",
       });
     },
     onSuccess: () => {

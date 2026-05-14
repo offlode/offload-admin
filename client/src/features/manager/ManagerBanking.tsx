@@ -29,29 +29,6 @@ interface WeeklyPayout {
   paid_at: string | null;
 }
 
-// ─── Mock data ───
-const MOCK_BANK: BankAccount = {
-  id: 1,
-  vendor_id: 1,
-  bank_name: "Chase Business",
-  last4: "4821",
-  masked_routing: "****6789",
-  status: "verified",
-};
-
-const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: 1, order_id: 1040, order_number: "OFF-1040", customer_name: "Alice Chen", amount_cents: 3200, date: "2026-05-14", type: "order" },
-  { id: 2, order_id: 1038, order_number: "OFF-1038", customer_name: "Bob Martinez", amount_cents: 4550, date: "2026-05-13", type: "order" },
-  { id: 3, order_id: 1035, order_number: "OFF-1035", customer_name: "Carol White", amount_cents: 2800, date: "2026-05-12", type: "order" },
-  { id: 4, order_id: 1032, order_number: "OFF-1032", customer_name: "Dan Johnson", amount_cents: 5100, date: "2026-05-11", type: "order" },
-  { id: 5, order_id: 1029, order_number: "OFF-1029", customer_name: "Eve Park", amount_cents: 3750, date: "2026-05-10", type: "order" },
-];
-
-const MOCK_PAYOUTS: WeeklyPayout[] = [
-  { week_label: "May 5 - May 11", amount_cents: 18450, orders_count: 14, paid_at: "2026-05-12" },
-  { week_label: "Apr 28 - May 4", amount_cents: 22100, orders_count: 18, paid_at: "2026-05-05" },
-  { week_label: "Apr 21 - Apr 27", amount_cents: 15800, orders_count: 11, paid_at: "2026-04-28" },
-];
 
 // ─── Helpers ───
 function formatCents(cents: number): string {
@@ -73,60 +50,43 @@ function getNextFriday(): string {
 }
 
 export default function ManagerBanking() {
+  // Bank account endpoint uses vendor ID from auth context
   const { data: bank, isLoading: bankLoading } = useQuery<BankAccount>({
     queryKey: ["/api/vendors/me/bank-account"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/vendors/me/bank-account");
-        return await res.json();
-      } catch {
-        return MOCK_BANK;
-      }
-    },
+    // TODO: actual endpoint is GET /api/vendors/:id/bank-account — manager's vendor_id from auth
   });
 
   const { data: transactions, isLoading: txLoading } = useQuery<Transaction[]>({
-    queryKey: ["/api/transactions", "vendor_id=me"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/transactions?vendor_id=me");
-        return await res.json();
-      } catch {
-        return MOCK_TRANSACTIONS;
-      }
-    },
+    queryKey: ["/api/transactions?vendor_id=me"],
   });
 
   const { data: payouts } = useQuery<WeeklyPayout[]>({
     queryKey: ["/api/vendors/me/payouts"],
-    retry: false,
-    queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/vendors/me/payouts");
-        return await res.json();
-      } catch {
-        return MOCK_PAYOUTS;
-      }
-    },
   });
 
-  const b = bank ?? MOCK_BANK;
-  const txs = transactions ?? MOCK_TRANSACTIONS;
-  const wkPayouts = payouts ?? MOCK_PAYOUTS;
+  const b = bank ?? null;
+  const txs = transactions ?? [];
+  const wkPayouts = payouts ?? [];
   const lastPayout = wkPayouts[0] ?? null;
 
   return (
     <div className="space-y-4 p-4 max-w-4xl mx-auto">
       <SectionHeader title="Banking & Payouts" />
 
-      {/* ─── Direct Deposit Info ─── */}
+      {/* ─── Direct Deposit Info (D8: bankName + last4 only, no routing) ─── */}
       {bankLoading ? (
         <SkeletonCard />
+      ) : !b ? (
+        <div className="bg-card border border-border rounded-xl p-6 text-center">
+          <Building2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No bank account on file.</p>
+          <Button variant="outline" size="sm" className="mt-3" asChild>
+            <a href="mailto:support@offloadusa.com?subject=Setup%20Banking%20Info">
+              <Mail className="w-4 h-4 mr-1" />
+              Set Up Direct Deposit
+            </a>
+          </Button>
+        </div>
       ) : (
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-start justify-between gap-2 mb-4">
@@ -134,8 +94,7 @@ export default function ManagerBanking() {
               <p className="text-xs text-muted-foreground mb-1">Direct Deposit</p>
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-muted-foreground" />
-                <span className="font-semibold">{b.bank_name}</span>
-                <span className="text-muted-foreground">&bull;&bull;&bull;&bull; {b.last4}</span>
+                <span className="font-semibold">{b.bankName} &#8226;&#8226;&#8226;&#8226;{b.lastFour}</span>
               </div>
             </div>
             <CreditCard className="w-5 h-5 text-muted-foreground" />
@@ -207,7 +166,7 @@ export default function ManagerBanking() {
       <div className="bg-card border border-border rounded-xl p-4">
         <SectionHeader title="Weekly Payouts" />
         {wkPayouts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No weekly payouts available.</p>
+          <p className="text-sm text-muted-foreground">No payouts yet.</p>
         ) : (
           <div className="space-y-0">
             {wkPayouts.map((p, idx) => (
