@@ -58,44 +58,6 @@ interface SeparateLoad {
   temperature: string;
 }
 
-// ─── Mock ───
-const MOCK_ORDER: OrderDetail = {
-  id: 1042,
-  order_number: "OFF-1042",
-  customer_name: "Jane Doe",
-  customer_phone: "+15551234567",
-  customer_certified: false,
-  customer_id: 10,
-  status: "washing",
-  display_status: "Washing",
-  bags: JSON.stringify([
-    { type: "Regular", count: 2, weight_lbs: 12.5 },
-    { type: "Delicate", count: 1, weight_lbs: 4.2 },
-  ]),
-  wash_preferences: {
-    detergent: "HE Free & Clear",
-    water_temp: "Warm",
-    drying: "Medium Heat",
-    stain_treatment: true,
-    extra_rinse: false,
-    delicate_wash: true,
-    separated: true,
-    clothing_types: ["Shirts", "Pants", "Delicates"],
-    special_instructions: "Please fold shirts on hangers if possible.",
-  },
-  add_ons: ["Extra Softener", "Stain Guard"],
-  special_instructions: "Ring doorbell twice at pickup.",
-  separate_loads: [
-    { label: "Whites", temperature: "Hot" },
-    { label: "Colors", temperature: "Cold" },
-    { label: "Delicates", temperature: "Cold" },
-  ],
-  created_at: new Date(Date.now() - 3600000).toISOString(),
-  scheduled_pickup: null,
-  vendor_id: 1,
-  driver_id: 5,
-};
-
 // ─── Helpers ───
 function parseBags(bagsJson: string): BagItem[] {
   try {
@@ -161,16 +123,12 @@ export default function ManagerOrderDetail() {
 
   const orderId = params.id;
 
-  const { data: order, isLoading } = useQuery<OrderDetail>({
+  const { data: order, isLoading, isError } = useQuery<OrderDetail>({
     queryKey: ["/api/orders", orderId],
     retry: false,
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", `/api/orders/${orderId}`);
-        return await res.json();
-      } catch {
-        return MOCK_ORDER;
-      }
+      const res = await apiRequest("GET", `/api/orders/${orderId}`);
+      return await res.json();
     },
   });
 
@@ -198,7 +156,45 @@ export default function ManagerOrderDetail() {
     );
   }
 
-  const o = order ?? MOCK_ORDER;
+  if (isError) {
+    return (
+      <div className="space-y-4 p-4 max-w-4xl mx-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/manager/orders")}
+          className="gap-1 -ml-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Orders
+        </Button>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-sm text-muted-foreground">Unable to load order — refresh to retry.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="space-y-4 p-4 max-w-4xl mx-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/manager/orders")}
+          className="gap-1 -ml-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Orders
+        </Button>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-sm text-muted-foreground">No order found.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const o = order;
   const bags = parseBags(o.bags);
   const prefs = parseWashPreferences(o.wash_preferences);
   const addOns = parseAddOns(o.add_ons);

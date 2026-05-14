@@ -147,10 +147,11 @@ function RoleRouter() {
       return <ManagerRouter />;
     case "driver":
       return <DriverRouter />;
+    case "operator":
     case "wash_operator":
       return <OperatorRouter />;
     default:
-      return <AdminRouter />;
+      return <NotFound />;
   }
 }
 

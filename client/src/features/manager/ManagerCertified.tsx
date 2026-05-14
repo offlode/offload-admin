@@ -11,15 +11,6 @@ interface VendorCertData {
   certified: boolean;
 }
 
-// ─── Mock data ───
-const MOCK_CERT: VendorCertData = {
-  rating: 4.8,
-  completion_rate: 0.96,
-  training_completed: true,
-  quality_passed: true,
-  certified: true,
-};
-
 // ─── Criteria definitions ───
 interface CriterionDef {
   label: string;
@@ -56,22 +47,15 @@ const CRITERIA: CriterionDef[] = [
 ];
 
 export default function ManagerCertified() {
-  const { data: certData, isLoading } = useQuery<VendorCertData>({
+  const { data: certData, isLoading, isError } = useQuery<VendorCertData>({
     queryKey: ["/api/vendors/me/certification"],
     retry: false,
     queryFn: async () => {
-      try {
-        const { apiRequest } = await import("@/lib/queryClient");
-        const res = await apiRequest("GET", "/api/vendors/me/certification");
-        return await res.json();
-      } catch {
-        return MOCK_CERT;
-      }
+      const { apiRequest } = await import("@/lib/queryClient");
+      const res = await apiRequest("GET", "/api/vendors/me/certification");
+      return await res.json();
     },
   });
-
-  const v = certData ?? MOCK_CERT;
-  const allPassed = CRITERIA.every((c) => c.check(v));
 
   if (isLoading) {
     return (
@@ -81,6 +65,33 @@ export default function ManagerCertified() {
       </div>
     );
   }
+
+  if (isError) {
+    return (
+      <div className="space-y-4 p-4 max-w-4xl mx-auto">
+        <SectionHeader title="Certified Status" />
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-sm text-muted-foreground">
+            Unable to load certification status — refresh to retry.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!certData) {
+    return (
+      <div className="space-y-4 p-4 max-w-4xl mx-auto">
+        <SectionHeader title="Certified Status" />
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-sm text-muted-foreground">No certification status available.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const v = certData;
+  const allPassed = CRITERIA.every((c) => c.check(v));
 
   return (
     <div className="space-y-4 p-4 max-w-4xl mx-auto">
