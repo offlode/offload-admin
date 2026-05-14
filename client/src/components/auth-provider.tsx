@@ -27,9 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       })
       .then((data) => {
-        // C-B2 fix: offload-admin is the admin portal. Vendors/drivers have their own
-        // dashboards inside the main customer SPA. Restrict to admin + manager only.
-        const allowed = ["admin", "manager"];
+        // The admin domain serves admin, manager, driver, and operator role apps.
+        // Keep legacy wash_operator sessions accepted so RoleRouter can alias them.
+        const allowed = ["admin", "manager", "driver", "operator", "laundromat", "wash_operator"];
         if (data?.user?.id && allowed.includes(data.user.role)) setUser(data.user);
         else if (data?.id && allowed.includes(data.role)) setUser(data);
       })

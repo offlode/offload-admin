@@ -45,17 +45,17 @@ export default function LoginPage() {
       const res = await apiRequest("POST", "/api/auth/login", { email: username, password });
       const data = await res.json();
       const user = data.user || data;
-      // C-B2 fix: this portal is admin-only. Vendors and drivers belong in the main app.
-      const allowed = ["admin", "manager"];
+      // The admin domain serves the manager, driver, and operator role apps.
+      const allowed = ["admin", "manager", "driver", "operator", "wash_operator"];
       if (!user || !allowed.includes(user.role)) {
         setAuthToken(null);
-        setError("Access denied. This portal is for Offload admin and manager accounts only.");
+        setError("Access denied. This portal is for Offload admin, manager, driver, and operator accounts only.");
         return;
       }
       setAuthToken(data.token || null);
       login(user);
     } catch (err: any) {
-      setError(err?.message?.includes("403") ? "Access denied. This portal is for Offload admin and manager accounts only." : "Invalid username or password.");
+      setError(err?.message?.includes("403") ? "Access denied. This portal is for Offload admin, manager, driver, and operator accounts only." : "Invalid username or password.");
     } finally {
       setLoading(false);
     }

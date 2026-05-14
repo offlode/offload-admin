@@ -18,6 +18,12 @@ interface Session {
 }
 
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
+
+// Pass-through for order status patch — no transformation needed since admin
+// now sends canonical status values directly.
+function normalizeOrderStatusPatch(body: Record<string, unknown>) {
+  return body;
+}
 const sessions = new Map<string, Session>();
 
 function generateSessionId(): string {
