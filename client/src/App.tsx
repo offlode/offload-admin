@@ -1,4 +1,4 @@
-import { Switch, Route, Router } from "wouter";
+import { Switch, Route, Router, Redirect } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -39,7 +39,12 @@ import ServiceAreaRequestsPage from "@/pages/service-area-requests";
 import QACenterPage from "@/pages/qa-center";
 import NotFound from "@/pages/not-found";
 
-function AppRouter() {
+// Role-based app imports
+import { ManagerDashboard, ManagerOrders, ManagerOrderDetail, ManagerBanking, ManagerBonuses, ManagerEmployees, ManagerSecurity, ManagerCertified } from "@/features/manager";
+import { DriverDashboard, DriverPickup, DriverDelivery, DriverVehicle } from "@/features/driver";
+import { OperatorDashboard, OperatorQueue, OperatorWashRun } from "@/features/operator";
+
+function AdminRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -67,9 +72,86 @@ function AppRouter() {
       <Route path="/service-areas" component={ServiceAreasPage} />
       <Route path="/service-area-requests" component={ServiceAreaRequestsPage} />
       <Route path="/qa-center" component={QACenterPage} />
+      {/* Admin can also access manager/driver/operator routes */}
+      <Route path="/manager" component={ManagerDashboard} />
+      <Route path="/manager/orders" component={ManagerOrders} />
+      <Route path="/manager/orders/:id" component={ManagerOrderDetail} />
+      <Route path="/manager/banking" component={ManagerBanking} />
+      <Route path="/manager/bonuses" component={ManagerBonuses} />
+      <Route path="/manager/employees" component={ManagerEmployees} />
+      <Route path="/manager/security" component={ManagerSecurity} />
+      <Route path="/manager/certified" component={ManagerCertified} />
+      <Route path="/driver" component={DriverDashboard} />
+      <Route path="/driver/orders/:id/pickup" component={DriverPickup} />
+      <Route path="/driver/orders/:id/delivery" component={DriverDelivery} />
+      <Route path="/driver/profile/vehicle" component={DriverVehicle} />
+      <Route path="/operator" component={OperatorDashboard} />
+      <Route path="/operator/queue" component={OperatorQueue} />
+      <Route path="/operator/orders/:id" component={OperatorWashRun} />
       <Route component={NotFound} />
     </Switch>
   );
+}
+
+function ManagerRouter() {
+  return (
+    <Switch>
+      <Route path="/manager" component={ManagerDashboard} />
+      <Route path="/manager/orders" component={ManagerOrders} />
+      <Route path="/manager/orders/:id" component={ManagerOrderDetail} />
+      <Route path="/manager/banking" component={ManagerBanking} />
+      <Route path="/manager/bonuses" component={ManagerBonuses} />
+      <Route path="/manager/employees" component={ManagerEmployees} />
+      <Route path="/manager/security" component={ManagerSecurity} />
+      <Route path="/manager/certified" component={ManagerCertified} />
+      <Route path="/">{() => <Redirect to="/manager" />}</Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function DriverRouter() {
+  return (
+    <Switch>
+      <Route path="/driver" component={DriverDashboard} />
+      <Route path="/driver/orders/:id/pickup" component={DriverPickup} />
+      <Route path="/driver/orders/:id/delivery" component={DriverDelivery} />
+      <Route path="/driver/profile/vehicle" component={DriverVehicle} />
+      <Route path="/">{() => <Redirect to="/driver" />}</Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function OperatorRouter() {
+  return (
+    <Switch>
+      <Route path="/operator" component={OperatorDashboard} />
+      <Route path="/operator/queue" component={OperatorQueue} />
+      <Route path="/operator/orders/:id" component={OperatorWashRun} />
+      <Route path="/">{() => <Redirect to="/operator" />}</Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function RoleRouter() {
+  const { user } = useAuth();
+  if (!user) return null;
+
+  switch (user.role) {
+    case "admin":
+      return <AdminRouter />;
+    case "manager":
+    case "laundromat":
+      return <ManagerRouter />;
+    case "driver":
+      return <DriverRouter />;
+    case "wash_operator":
+      return <OperatorRouter />;
+    default:
+      return <AdminRouter />;
+  }
 }
 
 function AuthenticatedApp() {
@@ -91,6 +173,26 @@ function AuthenticatedApp() {
     return <LoginPage />;
   }
 
+  // For non-admin roles, render without the admin sidebar
+  const isAdminRole = user.role === "admin";
+
+  if (!isAdminRole) {
+    return (
+      <div className="flex flex-col h-screen w-full overflow-hidden">
+        <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30" style={{borderTop: '2px solid hsl(var(--primary))'}}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-primary">OFFLOAD</span>
+            <span className="text-xs text-muted-foreground capitalize">{user.role.replace("_", " ")}</span>
+          </div>
+          <ThemeToggle />
+        </header>
+        <main className="flex-1 overflow-auto">
+          <RoleRouter />
+        </main>
+      </div>
+    );
+  }
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -106,7 +208,7 @@ function AuthenticatedApp() {
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto">
-            <AppRouter />
+            <RoleRouter />
           </main>
         </div>
       </div>

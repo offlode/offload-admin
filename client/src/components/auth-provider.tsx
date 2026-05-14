@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         // C-B2 fix: offload-admin is the admin portal. Vendors/drivers have their own
         // dashboards inside the main customer SPA. Restrict to admin + manager only.
-        const allowed = ["admin", "manager"];
+        const allowed = ["admin", "manager", "driver", "laundromat", "wash_operator"];
         if (data?.user?.id && allowed.includes(data.user.role)) setUser(data.user);
         else if (data?.id && allowed.includes(data.role)) setUser(data);
       })
