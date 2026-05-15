@@ -118,7 +118,7 @@ export default function StaffQueue() {
             onClick={() => setActiveFilter(tab.key)}
             className={`px-3 py-1 text-sm rounded-full whitespace-nowrap transition-colors ${
               activeFilter === tab.key
-                ? "bg-[#7C3AED] text-white"
+                ? "bg-[#5B4BC4] text-white"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >

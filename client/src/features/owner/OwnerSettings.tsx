@@ -102,7 +102,7 @@ export default function OwnerSettings() {
 
       <div className="bg-card border border-border rounded-xl p-4 space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <Settings className="h-4 w-4 text-[#7C3AED]" />
+          <Settings className="h-4 w-4 text-[#5B4BC4]" />
           <h2 className="font-semibold">Accepted Services</h2>
         </div>
 
@@ -118,7 +118,7 @@ export default function OwnerSettings() {
                 type="checkbox"
                 checked={form[key]}
                 onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.checked }))}
-                className="w-4 h-4 rounded border-border text-[#7C3AED] focus:ring-[#7C3AED]"
+                className="w-4 h-4 rounded border-border text-[#5B4BC4] focus:ring-[#5B4BC4]"
               />
               <span className="text-sm">{labels[key]}</span>
             </label>

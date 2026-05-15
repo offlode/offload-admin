@@ -91,7 +91,7 @@ export default function SuperLaundromats() {
             onClick={() => setFilter(f)}
             className={`px-3 py-1 text-sm rounded-full transition-colors ${
               filter === f
-                ? "bg-[#7C3AED] text-white"
+                ? "bg-[#5B4BC4] text-white"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
@@ -113,8 +113,8 @@ export default function SuperLaundromats() {
             <div key={l.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${l.active ? "bg-[#7C3AED]/10" : "bg-muted"}`}>
-                    <Building2 className={`h-5 w-5 ${l.active ? "text-[#7C3AED]" : "text-muted-foreground"}`} />
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${l.active ? "bg-[#5B4BC4]/10" : "bg-muted"}`}>
+                    <Building2 className={`h-5 w-5 ${l.active ? "text-[#5B4BC4]" : "text-muted-foreground"}`} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">

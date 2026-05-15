@@ -81,7 +81,7 @@ export default function SuperLaundromatNew() {
 
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <Building2 className="h-5 w-5 text-[#7C3AED]" />
+          <Building2 className="h-5 w-5 text-[#5B4BC4]" />
           <h2 className="font-semibold">Business Details</h2>
         </div>
 

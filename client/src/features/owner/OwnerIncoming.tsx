@@ -133,7 +133,7 @@ export default function OwnerIncoming() {
               <div key={offer.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-[#7C3AED]" />
+                    <Package className="h-4 w-4 text-[#5B4BC4]" />
                     <span className="font-medium">
                       {offer.order_number || `Order #${offer.order_id}`}
                     </span>
@@ -177,7 +177,7 @@ export default function OwnerIncoming() {
                     onClick={() => acceptMutation.mutate(offer.id)}
                     disabled={!canAccept || acceptMutation.isPending}
                     className="flex-1"
-                    style={{ backgroundColor: canAccept ? "#7C3AED" : undefined }}
+                    style={{ backgroundColor: canAccept ? "#5B4BC4" : undefined }}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Accept

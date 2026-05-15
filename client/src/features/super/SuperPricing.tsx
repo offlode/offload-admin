@@ -87,7 +87,7 @@ export default function SuperPricing() {
               <div key={tier.id} className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-[#7C3AED]" />
+                    <DollarSign className="h-4 w-4 text-[#5B4BC4]" />
                     <h3 className="font-semibold">{tier.displayName}</h3>
                     <span className="text-xs text-muted-foreground">up to {tier.maxWeight} lbs</span>
                   </div>

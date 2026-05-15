@@ -4,7 +4,7 @@
   "description": "Operations console for the Offload laundry network",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#7C3AED",
+  "theme_color": "#5B4BC4",
   "background_color": "#FFFFFF",
   "orientation": "portrait-primary",
   "icons": [
