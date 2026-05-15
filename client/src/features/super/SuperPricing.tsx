@@ -10,14 +10,14 @@ import { DollarSign, Save } from "lucide-react";
 interface PricingTier {
   id: number;
   name: string;
-  display_name: string;
-  max_weight: number;
-  flat_price: number;
-  flat_price_cents: number;
-  overage_rate: number;
-  overage_rate_cents: number;
+  displayName: string;
+  maxWeight: number;
+  flatPrice: number;
+  flatPriceCents: number;
+  overageRate: number;
+  overageRateCents: number;
   description: string;
-  is_active: boolean;
+  isActive: boolean;
 }
 
 export default function SuperPricing() {
@@ -36,7 +36,7 @@ export default function SuperPricing() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<PricingTier> }) => {
-      const res = await apiRequest("PATCH", `/api/pricing/${id}`, data);
+      const res = await apiRequest("PATCH", "/api/pricing", { tiers: [{ id, ...data }] });
       return res.json();
     },
     onSuccess: () => {
@@ -79,8 +79,8 @@ export default function SuperPricing() {
         <div className="space-y-4">
           {(tiers ?? []).map((tier) => {
             const edits = editing[tier.id] || {};
-            const price = edits.flat_price ?? tier.flat_price;
-            const overage = edits.overage_rate ?? tier.overage_rate;
+            const price = edits.flatPrice ?? tier.flatPrice;
+            const overage = edits.overageRate ?? tier.overageRate;
             const hasChanges = Object.keys(edits).length > 0;
 
             return (
@@ -88,8 +88,8 @@ export default function SuperPricing() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-[#7C3AED]" />
-                    <h3 className="font-semibold">{tier.display_name}</h3>
-                    <span className="text-xs text-muted-foreground">up to {tier.max_weight} lbs</span>
+                    <h3 className="font-semibold">{tier.displayName}</h3>
+                    <span className="text-xs text-muted-foreground">up to {tier.maxWeight} lbs</span>
                   </div>
                   {hasChanges && (
                     <Button size="sm" onClick={() => handleSave(tier)} disabled={updateMutation.isPending}>
@@ -104,7 +104,7 @@ export default function SuperPricing() {
                       type="number"
                       step="0.01"
                       value={price}
-                      onChange={(e) => handleEdit(tier.id, "flat_price", e.target.value)}
+                      onChange={(e) => handleEdit(tier.id, "flatPrice", e.target.value)}
                       className="h-8"
                     />
                   </div>
@@ -114,7 +114,7 @@ export default function SuperPricing() {
                       type="number"
                       step="0.01"
                       value={overage}
-                      onChange={(e) => handleEdit(tier.id, "overage_rate", e.target.value)}
+                      onChange={(e) => handleEdit(tier.id, "overageRate", e.target.value)}
                       className="h-8"
                     />
                   </div>
