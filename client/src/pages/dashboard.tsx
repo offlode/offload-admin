@@ -12,22 +12,7 @@ import {
 } from "recharts";
 import { Link } from "wouter";
 import { CANONICAL_TO_ADMIN_ORDER_STATUS } from "@/lib/order-status-map";
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "hsl(43, 74%, 49%)",
-  pickup_scheduled: "hsl(220, 70%, 50%)",
-  scheduled: "hsl(220, 70%, 50%)",
-  picked_up: "hsl(248, 51%, 53%)",
-  at_vendor: "hsl(280, 60%, 50%)",
-  at_facility: "hsl(280, 60%, 50%)",
-  processing: "hsl(200, 70%, 50%)",
-  ready: "hsl(270, 95%, 75%)",
-  ready_for_delivery: "hsl(270, 95%, 75%)",
-  out_for_delivery: "hsl(30, 80%, 50%)",
-  driver_en_route_delivery: "hsl(30, 80%, 50%)",
-  delivered: "hsl(140, 60%, 40%)",
-  cancelled: "hsl(0, 70%, 50%)",
-};
+import { STATUS_CHART_COLORS } from "@/features/shared/constants";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -179,7 +164,7 @@ export default function Dashboard() {
                     paddingAngle={2}
                   >
                     {statusData.map((entry, i) => (
-                      <Cell key={i} fill={STATUS_COLORS[entry.status] || "#888"} />
+                      <Cell key={i} fill={STATUS_CHART_COLORS[entry.status] || "#888"} />
                     ))}
                   </Pie>
                   <Tooltip

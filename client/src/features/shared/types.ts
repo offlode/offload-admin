@@ -19,26 +19,8 @@ export const ORDER_PROGRESS_STATES = [
 
 export type OrderProgressKey = (typeof ORDER_PROGRESS_STATES)[number]["key"];
 
-// ─── Status Pill Colors ───
-export const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-500/20 text-gray-400",
-  confirmed: "bg-purple-500/20 text-purple-400",
-  driver_assigned: "bg-purple-500/20 text-purple-400",
-  pickup_in_progress: "bg-purple-500/20 text-purple-400",
-  picked_up: "bg-blue-500/20 text-blue-400",
-  at_facility: "bg-blue-500/20 text-blue-400",
-  washing: "bg-purple-500/20 text-purple-400",
-  folded_packaged: "bg-green-500/20 text-green-400",
-  final_weight_verified: "bg-green-500/20 text-green-400",
-  ready_for_delivery: "bg-green-500/20 text-green-400",
-  out_for_delivery: "bg-orange-500/20 text-orange-400",
-  delivered: "bg-green-500/20 text-green-400",
-  completed: "bg-green-500/20 text-green-400",
-  cancelled: "bg-red-500/20 text-red-400",
-  urgent: "bg-red-500/20 text-red-400",
-  active: "bg-green-500/20 text-green-400",
-  inactive: "bg-gray-500/20 text-gray-400",
-};
+// ─── Status Pill Colors (canonical source: shared/constants.ts) ───
+export { STATUS_COLORS } from "./constants";
 
 // ─── Vendor Employee ───
 export interface VendorEmployee {
