@@ -463,7 +463,7 @@ export default function DriverPickup() {
           <CardContent className="space-y-4">
             <div>
               <Label className="text-sm text-muted-foreground mb-1.5 block">
-                Notes (required)
+                Notes (optional)
               </Label>
               <Textarea
                 value={notes}

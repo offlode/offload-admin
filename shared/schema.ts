@@ -237,9 +237,9 @@ export const orders = pgTable("orders", {
   driverId: integer("driver_id").references(() => drivers.id, { onDelete: "set null" }),
   returnDriverId: integer("return_driver_id").references(() => drivers.id, { onDelete: "set null" }),
   status: text("status").notNull().default("pending"),
-  // pending | confirmed | driver_assigned | pickup_in_progress | picked_up |
-  // at_laundromat | washing | wash_complete | quality_check | packing | ready_for_delivery |
-  // out_for_delivery | delivered | cancelled | disputed
+  // order_placed | confirmed | driver_assigned | picked_up | at_facility |
+  // washing | wash_complete | folded_packaged | final_weight_verified |
+  // ready_for_delivery | out_for_delivery | delivered | completed | cancelled
   pickupAddressId: integer("pickup_address_id").notNull().references(() => addresses.id, { onDelete: "restrict" }),
   pickupAddress: text("pickup_address").notNull(),
   deliveryAddressId: integer("delivery_address_id").references(() => addresses.id, { onDelete: "set null" }), // can differ from pickup
@@ -924,6 +924,23 @@ export const stripeProcessedEvents = pgTable("stripe_processed_events", {
 export const insertStripeProcessedEventSchema = createInsertSchema(stripeProcessedEvents);
 export type InsertStripeProcessedEvent = z.infer<typeof insertStripeProcessedEventSchema>;
 export type StripeProcessedEvent = typeof stripeProcessedEvents.$inferSelect;
+
+// ─── Stripe Reconciliation Entries ───
+export const stripeReconciliationEntries = pgTable("stripe_reconciliation_entries", {
+  id: serial("id").primaryKey(),
+  stripeEventId: text("stripe_event_id"),
+  stripeResourceId: text("stripe_resource_id"),
+  action: text("action").notNull(),
+  dbState: text("db_state"),
+  errorMessage: text("error_message"),
+  recordedAt: timestamptz("recorded_at").notNull(),
+  resolvedAt: timestamptz("resolved_at"),
+  notes: text("notes"),
+});
+
+export const insertStripeReconciliationEntrySchema = createInsertSchema(stripeReconciliationEntries).omit({ id: true });
+export type InsertStripeReconciliationEntry = z.infer<typeof insertStripeReconciliationEntrySchema>;
+export type StripeReconciliationEntry = typeof stripeReconciliationEntries.$inferSelect;
 
 // ─── Password Reset Tokens ───
 export const passwordResetTokens = pgTable("password_reset_tokens", {
