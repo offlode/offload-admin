@@ -2,7 +2,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 // Sandbox builds set VITE_API_BASE to point at the sandbox API.
 // Falls back to production URL when not provided.
-export const API_BASE = (import.meta as any).env?.VITE_API_BASE || "https://api.offloadusa.com";
+export const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? "";
 let _authToken: string | null = null;
 
 export function setAuthToken(token: string | null) { _authToken = token; }
@@ -95,7 +95,7 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 60000,
       retry: false,
     },
     mutations: {

@@ -16,10 +16,10 @@ interface QueueOrder {
 }
 
 // Staff-actionable statuses: orders physically at the facility that staff processes
-const STAFF_ACTIVE_STATUSES = ["at_facility", "washing", "folded_packaged", "final_weight_verified"];
+const STAFF_ACTIVE_STATUSES = ["at_facility", "washing", "wash_complete", "folded_packaged", "final_weight_verified"];
 
 // Pre-staff statuses: orders not yet at the facility (driver/system domain)
-const UPCOMING_STATUSES = ["order_placed", "confirmed", "driver_assigned", "pickup_in_progress", "picked_up"];
+const UPCOMING_STATUSES = ["order_placed", "confirmed", "driver_assigned", "picked_up"];
 
 // Post-staff statuses: orders ready or out for delivery
 const OUTGOING_STATUSES = ["ready_for_delivery", "out_for_delivery", "delivered", "completed"];
@@ -34,7 +34,7 @@ const FILTER_TABS = [
 function getTabForStatus(status: string): string {
   if (STAFF_ACTIVE_STATUSES.includes(status)) return "active";
   if (UPCOMING_STATUSES.includes(status)) return "upcoming";
-  if (OUTGOING_STATUSES.includes(status)) return "outgoing";
+  if (OUTGOING_STATUSES.includes(status)) return "ready";
   return "all";
 }
 

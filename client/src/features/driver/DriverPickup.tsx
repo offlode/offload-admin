@@ -242,7 +242,7 @@ export default function DriverPickup() {
       case 1:
         return bagCountMatches || mismatchNote.trim().length > 0;
       case 2:
-        return notes.trim().length > 0 && !!photoPreview;
+        return !!photoPreview;
       default:
         return true;
     }
