@@ -13,6 +13,7 @@ import {
 import { Link } from "wouter";
 import { CANONICAL_TO_ADMIN_ORDER_STATUS } from "@/lib/order-status-map";
 import { STATUS_CHART_COLORS } from "@/features/shared/constants";
+import { KPICard } from "@/features/shared/components";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -44,12 +45,12 @@ export default function Dashboard() {
           ))
         ) : (
           <>
-            <KPICard icon={DollarSign} label="Total Revenue" value={formatCurrency(kpis?.totalRevenue || 0)} />
-            <KPICard icon={ShoppingCart} label="Active Orders" value={kpis?.activeOrders || 0} />
-            <KPICard icon={Users} label="Active Customers" value={kpis?.activeCustomers || 0} />
-            <KPICard icon={Truck} label="Active Drivers" value={kpis?.activeDrivers || 0} />
-            <KPICard icon={TrendingUp} label="Avg Order Value" value={formatCurrency(kpis?.avgOrderValue || 0)} />
-            <KPICard icon={Percent} label="Platform Fees" value={formatCurrency(kpis?.platformFeeRevenue || 0)} />
+            <KPICard icon={<DollarSign className="h-4 w-4" />} title="Total Revenue" value={formatCurrency(kpis?.totalRevenue || 0)} />
+            <KPICard icon={<ShoppingCart className="h-4 w-4" />} title="Active Orders" value={kpis?.activeOrders || 0} />
+            <KPICard icon={<Users className="h-4 w-4" />} title="Active Customers" value={kpis?.activeCustomers || 0} />
+            <KPICard icon={<Truck className="h-4 w-4" />} title="Active Drivers" value={kpis?.activeDrivers || 0} />
+            <KPICard icon={<TrendingUp className="h-4 w-4" />} title="Avg Order Value" value={formatCurrency(kpis?.avgOrderValue || 0)} />
+            <KPICard icon={<Percent className="h-4 w-4" />} title="Platform Fees" value={formatCurrency(kpis?.platformFeeRevenue || 0)} />
           </>
         )}
       </div>
@@ -230,22 +231,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function KPICard({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Icon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{label}</span>
-        </div>
-        <p className="text-lg font-semibold tracking-tight" data-testid={`text-kpi-${label.toLowerCase().replace(/\s/g, '-')}`}>
-          {value}
-        </p>
-      </CardContent>
-    </Card>
   );
 }
 
