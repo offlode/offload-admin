@@ -7,3 +7,12 @@ if (!window.location.hash) {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// Register service worker for PWA installability
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // SW registration is non-critical
+    });
+  });
+}

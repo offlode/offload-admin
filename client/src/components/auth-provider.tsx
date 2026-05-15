@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         // The admin domain serves admin, manager, driver, and operator role apps.
         // Keep legacy wash_operator sessions accepted so RoleRouter can alias them.
-        const allowed = ["admin", "manager", "driver", "operator", "laundromat", "wash_operator"];
+        const allowed = ["admin", "super_admin", "manager", "laundromat_owner", "laundromat_employee", "driver", "operator", "laundromat", "wash_operator"];
         if (data?.user?.id && allowed.includes(data.user.role)) setUser(data.user);
         else if (data?.id && allowed.includes(data.role)) setUser(data);
       })
