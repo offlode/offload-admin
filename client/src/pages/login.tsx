@@ -46,14 +46,28 @@ export default function LoginPage() {
       const data = await res.json();
       const user = data.user || data;
       // The admin domain serves the manager, driver, and operator role apps.
-      const allowed = ["admin", "manager", "driver", "operator", "wash_operator"];
+      const allowed = ["admin", "super_admin", "manager", "laundromat_owner", "laundromat_employee", "driver", "operator", "wash_operator"];
       if (!user || !allowed.includes(user.role)) {
         setAuthToken(null);
-        setError("Access denied. This portal is for Offload admin, manager, driver, and operator accounts only.");
+        setError("Access denied. This portal is for authorized Offload staff only.");
         return;
       }
       setAuthToken(data.token || null);
       login(user);
+      // Role-based redirect
+      const redirectMap: Record<string, string> = {
+        super_admin: "#/super/dashboard",
+        admin: "#/super/dashboard",
+        laundromat_owner: "#/owner/dashboard",
+        manager: "#/owner/dashboard",
+        laundromat: "#/owner/dashboard",
+        laundromat_employee: "#/staff/queue",
+        operator: "#/staff/queue",
+        wash_operator: "#/staff/queue",
+        driver: "#/driver",
+      };
+      const target = redirectMap[user.role] || "#/";
+      window.location.hash = target;
     } catch (err: any) {
       setError(err?.message?.includes("403") ? "Access denied. This portal is for Offload admin, manager, driver, and operator accounts only." : "Invalid username or password.");
     } finally {
