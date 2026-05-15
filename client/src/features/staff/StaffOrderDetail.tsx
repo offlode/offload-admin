@@ -223,7 +223,7 @@ export default function StaffOrderDetail() {
           onClick={() => statusMutation.mutate(nextStatus)}
           disabled={statusMutation.isPending}
           className="w-full h-12 text-base"
-          style={{ backgroundColor: "#7C3AED" }}
+          style={{ backgroundColor: "#5B4BC4" }}
         >
           <ChevronRight className="h-5 w-5 mr-2" />
           {TRANSITION_LABELS[nextStatus] || `Move to ${nextStatus.replace(/_/g, " ")}`}
@@ -303,7 +303,7 @@ export default function StaffOrderDetail() {
                 className={`text-sm p-2 rounded-lg max-w-[80%] ${
                   msg.sender_role === "customer"
                     ? "bg-muted mr-auto"
-                    : "bg-[#7C3AED]/10 ml-auto text-right"
+                    : "bg-[#5B4BC4]/10 ml-auto text-right"
                 }`}
               >
                 <div className="text-xs text-muted-foreground mb-0.5">

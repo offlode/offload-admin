@@ -20,11 +20,11 @@ const ROLE_OPTIONS = ["customer", "driver", "laundromat_owner", "laundromat_empl
 const ROLE_COLORS: Record<string, string> = {
   super_admin: "bg-red-500/10 text-red-500",
   admin: "bg-red-500/10 text-red-500",
-  laundromat_owner: "bg-[#7C3AED]/10 text-[#7C3AED]",
+  laundromat_owner: "bg-[#5B4BC4]/10 text-[#5B4BC4]",
   laundromat_employee: "bg-blue-500/10 text-blue-500",
   driver: "bg-orange-500/10 text-orange-500",
   customer: "bg-gray-500/10 text-gray-500",
-  manager: "bg-[#7C3AED]/10 text-[#7C3AED]",
+  manager: "bg-[#5B4BC4]/10 text-[#5B4BC4]",
 };
 
 export default function SuperUsers() {
@@ -92,8 +92,8 @@ export default function SuperUsers() {
             <div key={u.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#7C3AED]/10 flex items-center justify-center">
-                    <UserCheck className="h-4 w-4 text-[#7C3AED]" />
+                  <div className="w-8 h-8 rounded-full bg-[#5B4BC4]/10 flex items-center justify-center">
+                    <UserCheck className="h-4 w-4 text-[#5B4BC4]" />
                   </div>
                   <div>
                     <div className="font-medium text-sm">{u.name}</div>
@@ -110,7 +110,7 @@ export default function SuperUsers() {
                           disabled={roleMutation.isPending}
                           className={`text-xs px-2 py-1 rounded-full transition-colors ${
                             r === u.role
-                              ? "bg-[#7C3AED] text-white"
+                              ? "bg-[#5B4BC4] text-white"
                               : "bg-muted hover:bg-muted/80 text-muted-foreground"
                           }`}
                         >

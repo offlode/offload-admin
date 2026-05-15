@@ -224,7 +224,7 @@ function RoleNav({ role }: { role: string }) {
             href={item.href}
             className={`px-3 py-1 text-sm rounded-md whitespace-nowrap transition-colors ${
               active
-                ? "bg-[#7C3AED]/10 text-[#7C3AED] font-medium"
+                ? "bg-[#5B4BC4]/10 text-[#5B4BC4] font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
@@ -269,7 +269,7 @@ function AuthenticatedApp() {
         <div className="flex h-screen w-full overflow-hidden">
           <AppSidebar />
           <div className="flex flex-col flex-1 min-w-0">
-            <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30" style={{ borderTop: "3px solid #7C3AED" }}>
+            <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30" style={{ borderTop: "3px solid #5B4BC4" }}>
               <div className="flex items-center gap-3">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
                 <RoleNav role={user.role} />
@@ -307,10 +307,10 @@ function AuthenticatedApp() {
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
-      <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30" style={{ borderTop: "3px solid #7C3AED" }}>
+      <header className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30" style={{ borderTop: "3px solid #5B4BC4" }}>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-bold" style={{ color: "#7C3AED" }}>OFFLOAD</span>
-          <span className="text-xs bg-[#7C3AED]/10 text-[#7C3AED] px-2 py-0.5 rounded-full font-medium">
+          <span className="text-sm font-bold" style={{ color: "#5B4BC4" }}>OFFLOAD</span>
+          <span className="text-xs bg-[#5B4BC4]/10 text-[#5B4BC4] px-2 py-0.5 rounded-full font-medium">
             {roleLabels[user.role] || user.role.replace(/_/g, " ")}
           </span>
           <RoleNav role={user.role} />

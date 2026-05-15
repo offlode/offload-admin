@@ -131,8 +131,8 @@ export default function OwnerEmployees() {
           {(employees ?? []).map((emp) => (
             <div key={emp.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#7C3AED]/10 flex items-center justify-center">
-                  <UserCheck className="h-4 w-4 text-[#7C3AED]" />
+                <div className="w-8 h-8 rounded-full bg-[#5B4BC4]/10 flex items-center justify-center">
+                  <UserCheck className="h-4 w-4 text-[#5B4BC4]" />
                 </div>
                 <div>
                   <div className="font-medium text-sm">{emp.name}</div>

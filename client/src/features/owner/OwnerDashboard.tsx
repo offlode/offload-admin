@@ -63,17 +63,17 @@ export default function OwnerDashboard() {
 
       {k.pending_offers > 0 && (
         <div
-          className="bg-[#7C3AED]/10 border border-[#7C3AED]/30 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-[#7C3AED]/15 transition-colors"
+          className="bg-[#5B4BC4]/10 border border-[#5B4BC4]/30 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-[#5B4BC4]/15 transition-colors"
           onClick={() => navigate("/owner/incoming")}
         >
           <div className="flex items-center gap-3">
-            <Bell className="h-5 w-5 text-[#7C3AED]" />
+            <Bell className="h-5 w-5 text-[#5B4BC4]" />
             <div>
-              <span className="font-semibold text-[#7C3AED]">{k.pending_offers} incoming offer{k.pending_offers !== 1 ? "s" : ""}</span>
+              <span className="font-semibold text-[#5B4BC4]">{k.pending_offers} incoming offer{k.pending_offers !== 1 ? "s" : ""}</span>
               <p className="text-xs text-muted-foreground">New orders waiting to be accepted</p>
             </div>
           </div>
-          <ArrowRight className="h-5 w-5 text-[#7C3AED]" />
+          <ArrowRight className="h-5 w-5 text-[#5B4BC4]" />
         </div>
       )}
 
@@ -102,7 +102,7 @@ export default function OwnerDashboard() {
           className="h-auto p-4 justify-start"
           onClick={() => navigate("/owner/incoming")}
         >
-          <Bell className="h-5 w-5 mr-3 text-[#7C3AED]" />
+          <Bell className="h-5 w-5 mr-3 text-[#5B4BC4]" />
           <div className="text-left">
             <div className="font-medium">Incoming Orders</div>
             <div className="text-xs text-muted-foreground">Review and accept new orders</div>
@@ -113,7 +113,7 @@ export default function OwnerDashboard() {
           className="h-auto p-4 justify-start"
           onClick={() => navigate("/owner/orders")}
         >
-          <Package className="h-5 w-5 mr-3 text-[#7C3AED]" />
+          <Package className="h-5 w-5 mr-3 text-[#5B4BC4]" />
           <div className="text-left">
             <div className="font-medium">All Orders</div>
             <div className="text-xs text-muted-foreground">View and manage your orders</div>
