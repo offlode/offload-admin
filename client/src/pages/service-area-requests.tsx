@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,13 +90,7 @@ export default function ServiceAreaRequestsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: { status?: string; notes?: string } }) => {
-      const res = await fetch(`/api/admin/service-area-requests/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      const res = await apiRequest("PATCH", `/api/admin/service-area-requests/${id}`, data);
       return res.json();
     },
     onSuccess: () => {

@@ -7,6 +7,7 @@ import { vendorsRouter } from "./routes/vendors";
 import { driversRouter } from "./routes/drivers";
 import { adminRouter } from "./routes/admin";
 import { customersRouter } from "./routes/customers";
+import { laundromatRouter } from "./routes/laundromats";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -49,6 +50,7 @@ export async function registerRoutes(
   app.use(driversRouter);
   app.use(adminRouter);
   app.use(customersRouter);
+  app.use(laundromatRouter);
 
   return httpServer;
 }
