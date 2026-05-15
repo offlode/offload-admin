@@ -49,10 +49,10 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="Offload logo">
-            <rect width="32" height="32" rx="8" fill="#5B4BC4" />
-            <path d="M8 16C8 11.6 11.6 8 16 8C20.4 8 24 11.6 24 16C24 20.4 20.4 24 16 24" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-            <path d="M16 24L12 20M16 24L20 20" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" aria-label="Offload logo">
+            <circle cx="18" cy="18" r="16" stroke="#5B4BC4" strokeWidth="2.5" />
+            <path d="M12 18c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6" stroke="#5B4BC4" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="18" cy="18" r="2" fill="#5B4BC4" />
           </svg>
           <span className="font-semibold text-sm tracking-tight">Offload Admin</span>
         </div>
