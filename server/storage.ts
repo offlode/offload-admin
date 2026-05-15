@@ -1,11 +1,13 @@
 import {
   users, drivers, vendors, orders, orderStatusHistory,
   reviews, disputes, promoCodes, paymentTransactions, pricingConfig, adminAuditLog,
-  passwordResetTokens,
+  passwordResetTokens, partnerApplications, notificationRules, stripeReconciliationEntries,
+  pricingAuditLog,
   type User, type InsertUser, type Driver, type InsertDriver, type Vendor, type InsertVendor,
   type Order, type InsertOrder, type Dispute, type InsertDispute,
   type PromoCode, type InsertPromoCode, type Review,
   type PaymentTransaction, type PricingConfig, type AdminAuditLog,
+  type PartnerApplication, type NotificationRule, type StripeReconciliationEntry,
 } from "@shared/schema";
 
 type Customer = User;
@@ -80,6 +82,27 @@ export interface IStorage {
   getPasswordResetToken(token: string): Promise<any | undefined>;
   markPasswordResetTokenUsed(token: string): Promise<void>;
   cleanExpiredResetTokens(): Promise<void>;
+  // Partner Applications
+  getPartnerApplications(filters?: { status?: string; applicantType?: string }): Promise<PartnerApplication[]>;
+  getPartnerApplication(id: number): Promise<PartnerApplication | undefined>;
+  updatePartnerApplication(id: number, data: Partial<PartnerApplication>): Promise<PartnerApplication | undefined>;
+  getPartnerApplicationStats(): Promise<{ pending: number; autoFlagged: number; approved: number; declined: number }>;
+  // Drivers/Vendors creation
+  createDriver(data: InsertDriver): Promise<Driver>;
+  createVendor(data: InsertVendor): Promise<Vendor>;
+  // Pricing Config (admin endpoints)
+  getAllPricingConfig(): Promise<PricingConfig[]>;
+  getPricingConfig(key: string): Promise<PricingConfig | undefined>;
+  setPricingConfig(key: string, data: { value: string; category: string; description: string | null; updatedBy: number }): Promise<PricingConfig>;
+  getPricingAuditLog(): Promise<any[]>;
+  // Notification Rules
+  getNotificationRules(): Promise<NotificationRule[]>;
+  createNotificationRule(data: any): Promise<NotificationRule>;
+  updateNotificationRule(id: number, data: Partial<NotificationRule>): Promise<NotificationRule | undefined>;
+  deleteNotificationRule(id: number): Promise<boolean>;
+  // Stripe Reconciliation
+  getStripeReconciliationEntries(opts: { page: number; limit: number; resolved?: boolean }): Promise<{ entries: StripeReconciliationEntry[]; page: number; limit: number; total: number }>;
+  resolveStripeReconciliationEntry(id: number, notes: string | null): Promise<StripeReconciliationEntry | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -305,6 +328,116 @@ export class DatabaseStorage implements IStorage {
   async cleanExpiredResetTokens(): Promise<void> {
     await db.delete(passwordResetTokens)
       .where(sql`${passwordResetTokens.expiresAt} < ${new Date().toISOString()}`);
+  }
+
+  // ── Partner Applications ──
+  async getPartnerApplications(filters?: { status?: string; applicantType?: string }): Promise<PartnerApplication[]> {
+    let query = db.select().from(partnerApplications).orderBy(desc(partnerApplications.createdAt));
+    const rows = await query;
+    let results = rows as PartnerApplication[];
+    if (filters?.status) {
+      results = results.filter(a => a.status === filters.status);
+    }
+    if (filters?.applicantType) {
+      results = results.filter(a => a.applicantType === filters.applicantType);
+    }
+    return results;
+  }
+  async getPartnerApplication(id: number): Promise<PartnerApplication | undefined> {
+    const rows = await db.select().from(partnerApplications).where(eq(partnerApplications.id, id));
+    return rows[0];
+  }
+  async updatePartnerApplication(id: number, data: Partial<PartnerApplication>): Promise<PartnerApplication | undefined> {
+    const rows = await db.update(partnerApplications).set(data).where(eq(partnerApplications.id, id)).returning();
+    return rows[0];
+  }
+  async getPartnerApplicationStats(): Promise<{ pending: number; autoFlagged: number; approved: number; declined: number }> {
+    const all = await db.select().from(partnerApplications);
+    return {
+      pending: all.filter(a => a.status === "pending_review").length,
+      autoFlagged: all.filter(a => a.status === "auto_flagged").length,
+      approved: all.filter(a => a.status === "approved").length,
+      declined: all.filter(a => a.status === "declined").length,
+    };
+  }
+
+  // ── Create Driver / Vendor (used by partner approval) ──
+  async createDriver(data: InsertDriver): Promise<Driver> {
+    const rows = await db.insert(drivers).values(data).returning();
+    return rows[0];
+  }
+  async createVendor(data: InsertVendor): Promise<Vendor> {
+    const rows = await db.insert(vendors).values(data).returning();
+    return rows[0];
+  }
+
+  // ── Pricing Config (admin endpoints) ──
+  async getAllPricingConfig(): Promise<PricingConfig[]> {
+    return db.select().from(pricingConfig).orderBy(asc(pricingConfig.key));
+  }
+  async getPricingConfig(key: string): Promise<PricingConfig | undefined> {
+    const rows = await db.select().from(pricingConfig).where(eq(pricingConfig.key, key));
+    return rows[0];
+  }
+  async setPricingConfig(key: string, data: { value: string; category: string; description: string | null; updatedBy: number }): Promise<PricingConfig> {
+    const existing = await this.getPricingConfig(key);
+    const now = new Date().toISOString();
+    if (existing) {
+      const rows = await db.update(pricingConfig)
+        .set({ value: data.value, category: data.category, description: data.description, updatedBy: data.updatedBy, updatedAt: now })
+        .where(eq(pricingConfig.key, key))
+        .returning();
+      return rows[0];
+    }
+    const rows = await db.insert(pricingConfig)
+      .values({ key, value: data.value, category: data.category, description: data.description, updatedBy: data.updatedBy, updatedAt: now })
+      .returning();
+    return rows[0];
+  }
+  async getPricingAuditLog(): Promise<any[]> {
+    return db.select().from(pricingAuditLog).orderBy(desc(pricingAuditLog.timestamp));
+  }
+
+  // ── Notification Rules ──
+  async getNotificationRules(): Promise<NotificationRule[]> {
+    return db.select().from(notificationRules).orderBy(desc(notificationRules.createdAt));
+  }
+  async createNotificationRule(data: any): Promise<NotificationRule> {
+    const now = new Date().toISOString();
+    const rows = await db.insert(notificationRules).values({ ...data, createdAt: now, updatedAt: now }).returning();
+    return rows[0];
+  }
+  async updateNotificationRule(id: number, data: Partial<NotificationRule>): Promise<NotificationRule | undefined> {
+    const rows = await db.update(notificationRules)
+      .set({ ...data, updatedAt: new Date().toISOString() })
+      .where(eq(notificationRules.id, id))
+      .returning();
+    return rows[0];
+  }
+  async deleteNotificationRule(id: number): Promise<boolean> {
+    const rows = await db.delete(notificationRules).where(eq(notificationRules.id, id)).returning();
+    return rows.length > 0;
+  }
+
+  // ── Stripe Reconciliation ──
+  async getStripeReconciliationEntries(opts: { page: number; limit: number; resolved?: boolean }): Promise<{ entries: StripeReconciliationEntry[]; page: number; limit: number; total: number }> {
+    let all = await db.select().from(stripeReconciliationEntries).orderBy(desc(stripeReconciliationEntries.recordedAt));
+    if (opts.resolved === true) {
+      all = all.filter(e => e.resolvedAt != null);
+    } else if (opts.resolved === false) {
+      all = all.filter(e => e.resolvedAt == null);
+    }
+    const total = all.length;
+    const start = (opts.page - 1) * opts.limit;
+    const entries = all.slice(start, start + opts.limit);
+    return { entries, page: opts.page, limit: opts.limit, total };
+  }
+  async resolveStripeReconciliationEntry(id: number, notes: string | null): Promise<StripeReconciliationEntry | undefined> {
+    const rows = await db.update(stripeReconciliationEntries)
+      .set({ resolvedAt: new Date().toISOString(), notes })
+      .where(eq(stripeReconciliationEntries.id, id))
+      .returning();
+    return rows[0];
   }
 }
 

@@ -8,6 +8,10 @@ import { driversRouter } from "./routes/drivers";
 import { adminRouter } from "./routes/admin";
 import { customersRouter } from "./routes/customers";
 import { laundromatRouter } from "./routes/laundromats";
+import { partnerApplicationsRouter } from "./routes/partner-applications";
+import { pricingConfigRouter } from "./routes/pricing-config";
+import { notificationRulesRouter } from "./routes/notification-rules";
+import { stripeReconciliationRouter } from "./routes/stripe-reconciliation";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -51,6 +55,10 @@ export async function registerRoutes(
   app.use(adminRouter);
   app.use(customersRouter);
   app.use(laundromatRouter);
+  app.use(partnerApplicationsRouter);
+  app.use(pricingConfigRouter);
+  app.use(notificationRulesRouter);
+  app.use(stripeReconciliationRouter);
 
   return httpServer;
 }

@@ -151,7 +151,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   }
 
   // Enforce allowed roles
-  const allowedRoles = ["admin", "super_admin", "manager", "laundromat_owner"];
+  const allowedRoles = ["admin", "super_admin", "manager", "laundromat_owner", "laundromat_employee", "operator", "wash_operator", "driver"];
   if (!allowedRoles.includes(session.role)) {
     res.status(403).json({ message: "Forbidden: admin access required" });
     return;

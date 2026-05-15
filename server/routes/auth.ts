@@ -53,7 +53,7 @@ authRouter.post("/api/auth/login", async (req, res) => {
     resetRateLimit(ip);
 
     // Only admin/super_admin/manager/laundromat_owner roles can access admin panel
-    if (!["admin", "super_admin", "manager", "laundromat_owner"].includes(user.role)) {
+    if (!["admin", "super_admin", "manager", "laundromat_owner", "laundromat_employee", "operator", "wash_operator", "driver"].includes(user.role)) {
       res.status(403).json({ message: "Admin access required" });
       return;
     }

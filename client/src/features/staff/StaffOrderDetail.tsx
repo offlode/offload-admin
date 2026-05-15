@@ -48,14 +48,13 @@ const TRANSITION_LABELS: Record<string, string> = {
 };
 
 // States where staff is waiting for driver action
-const PRE_STAFF_STATES = ["order_placed", "confirmed", "driver_assigned", "pickup_in_progress", "picked_up"];
+const PRE_STAFF_STATES = ["order_placed", "confirmed", "driver_assigned", "picked_up"];
 
 // Informational messages for pre-staff states
 const PRE_STAFF_MESSAGES: Record<string, string> = {
   order_placed: "Order has been placed. Waiting for confirmation and driver assignment.",
   confirmed: "Order confirmed. Waiting for driver to be assigned and pick up the order.",
   driver_assigned: "Driver has been assigned. Waiting for driver to pick up and deliver to facility.",
-  pickup_in_progress: "Driver is picking up the order. It will arrive at the facility shortly.",
   picked_up: "Driver has picked up the order. It should arrive at the facility soon.",
 };
 

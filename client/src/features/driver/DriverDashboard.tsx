@@ -100,7 +100,6 @@ export default function DriverDashboard() {
   const driverJobs = jobs ?? [];
   const activeJob = driverJobs.find(
     (j) =>
-      j.status === "pickup_in_progress" ||
       j.status === "out_for_delivery" ||
       j.status === "driver_assigned"
   );

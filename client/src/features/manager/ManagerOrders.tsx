@@ -55,13 +55,13 @@ function parseBagSummary(bagsJson: string): string {
 }
 
 const STATUS_OPTIONS = [
-  "pending",
+  "order_placed",
   "confirmed",
   "driver_assigned",
-  "pickup_in_progress",
   "picked_up",
   "at_facility",
   "washing",
+  "wash_complete",
   "folded_packaged",
   "final_weight_verified",
   "ready_for_delivery",

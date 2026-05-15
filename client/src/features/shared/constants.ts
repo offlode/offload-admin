@@ -20,13 +20,14 @@ export const STATUS_CHART_COLORS: Record<string, string> = {
 
 /** Tailwind CSS classes for status pills (used in StatusPill component) */
 export const STATUS_COLORS: Record<string, string> = {
+  order_placed: "bg-blue-500/20 text-blue-400",
   pending: "bg-gray-500/20 text-gray-400",
   confirmed: "bg-purple-500/20 text-purple-400",
   driver_assigned: "bg-purple-500/20 text-purple-400",
-  pickup_in_progress: "bg-purple-500/20 text-purple-400",
   picked_up: "bg-blue-500/20 text-blue-400",
   at_facility: "bg-blue-500/20 text-blue-400",
   washing: "bg-purple-500/20 text-purple-400",
+  wash_complete: "bg-purple-500/20 text-purple-400",
   folded_packaged: "bg-green-500/20 text-green-400",
   final_weight_verified: "bg-green-500/20 text-green-400",
   ready_for_delivery: "bg-green-500/20 text-green-400",
