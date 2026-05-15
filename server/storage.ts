@@ -2,19 +2,17 @@ import {
   users, drivers, vendors, orders, orderStatusHistory,
   reviews, disputes, promoCodes, paymentTransactions, pricingConfig, adminAuditLog,
   passwordResetTokens,
-  type User, type InsertUser, type Driver, type Vendor,
-  type Order, type Dispute, type InsertDispute,
+  type User, type InsertUser, type Driver, type InsertDriver, type Vendor, type InsertVendor,
+  type Order, type InsertOrder, type Dispute, type InsertDispute,
   type PromoCode, type InsertPromoCode, type Review,
+  type PaymentTransaction, type PricingConfig, type AdminAuditLog,
 } from "@shared/schema";
 
-type Customer = any;
-type InsertCustomer = any;
-type InsertDriver = any;
-type InsertVendor = any;
-type InsertOrder = any;
-type Transaction = any;
-type PlatformSetting = any;
-type CommunicationLogEntry = any;
+type Customer = User;
+type InsertCustomer = InsertUser;
+type Transaction = PaymentTransaction;
+type PlatformSetting = PricingConfig;
+type CommunicationLogEntry = AdminAuditLog;
 const customers = users as any;
 const transactions = paymentTransactions as any;
 const platformSettings = pricingConfig as any;
@@ -109,16 +107,16 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(users).orderBy(desc(users.id));
   }
 
-  // Customers
+  // Customers (aliased from users table)
   async getCustomers(): Promise<Customer[]> {
-    return db.select().from(customers).orderBy(desc(customers.id));
+    return db.select().from(customers).orderBy(desc(customers.id)) as unknown as Promise<Customer[]>;
   }
   async getCustomer(id: number): Promise<Customer | undefined> {
-    const rows = await db.select().from(customers).where(eq(customers.id, id));
+    const rows = await db.select().from(customers).where(eq(customers.id, id)) as unknown as Customer[];
     return rows[0];
   }
   async updateCustomer(id: number, data: Partial<Customer>): Promise<Customer | undefined> {
-    const rows = await db.update(customers).set(data).where(eq(customers.id, id)).returning();
+    const rows = await db.update(customers).set(data).where(eq(customers.id, id)).returning() as unknown as Customer[];
     return rows[0];
   }
 
@@ -198,22 +196,22 @@ export class DatabaseStorage implements IStorage {
     return rows[0];
   }
 
-  // Transactions
+  // Transactions (aliased from paymentTransactions table)
   async getTransactions(): Promise<Transaction[]> {
-    return db.select().from(transactions).orderBy(desc(transactions.createdAt));
+    return db.select().from(transactions).orderBy(desc(transactions.createdAt)) as unknown as Promise<Transaction[]>;
   }
 
-  // Settings
+  // Settings (aliased from pricingConfig table)
   async getSettings(): Promise<PlatformSetting[]> {
-    return db.select().from(platformSettings);
+    return db.select().from(platformSettings) as unknown as Promise<PlatformSetting[]>;
   }
   async updateSetting(key: string, value: string): Promise<void> {
     await db.update(platformSettings).set({ value }).where(eq(platformSettings.key, key));
   }
 
-  // Communication Log
+  // Communication Log (aliased from adminAuditLog table)
   async getCommunicationLog(customerId: number): Promise<CommunicationLogEntry[]> {
-    return db.select().from(communicationLog).where(eq(communicationLog.customerId, customerId)).orderBy(desc(communicationLog.sentAt));
+    return db.select().from(communicationLog).where(eq(communicationLog.customerId, customerId)).orderBy(desc(communicationLog.sentAt)) as unknown as Promise<CommunicationLogEntry[]>;
   }
 
   // KPIs

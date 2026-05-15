@@ -56,9 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queryClient.clear();
       } finally {
         if (typeof window !== "undefined") {
-          const path = window.location.pathname;
-          if (path !== "/login" && path !== "/") {
-            window.location.href = "/login";
+          const hash = window.location.hash;
+          if (hash !== "#/login" && hash !== "" && hash !== "#" && hash !== "#/") {
+            window.location.hash = "#/login";
           }
         }
       }

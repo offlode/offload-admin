@@ -110,7 +110,7 @@ export default function OwnerSettings() {
           const labels: Record<string, string> = {
             accepts_standard: "Standard Wash",
             accepts_signature: "Signature Wash",
-            accepts_custom: "Custom Wash",
+            accepts_custom: "Wash Preferences",
           };
           return (
             <label key={key} className="flex items-center gap-3 cursor-pointer">
