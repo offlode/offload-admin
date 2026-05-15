@@ -27,12 +27,10 @@ export default function SuperPricing() {
   const { data: tiers, isLoading } = useQuery<PricingTier[]>({
     queryKey: ["/api/pricing"],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/pricing");
-        return res.json();
-      } catch {
-        return [];
-      }
+      const res = await apiRequest("GET", "/api/pricing");
+      const data = await res.json();
+      // Handle both array (new) and { tiers } (legacy) response shapes
+      return Array.isArray(data) ? data : (data?.tiers ?? []);
     },
   });
 
