@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Package, Users, DollarSign, Clock, Bell, ArrowRight } from "lucide-react";
+import { Package, Users, DollarSign, Clock, Bell, ArrowRight, Award } from "lucide-react";
 import { useLocation } from "wouter";
 import { KPICard, SkeletonCard } from "@/features/shared/components";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface OwnerKPIs {
   orders_today: number;
@@ -24,6 +26,19 @@ function getGreeting(): string {
 export default function OwnerDashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+
+  const { data: vendorInfo } = useQuery<{ certified?: boolean }>({
+    queryKey: ["/api/laundromats/me"],
+    queryFn: async () => {
+      try {
+        const { apiRequest } = await import("@/lib/queryClient");
+        const res = await apiRequest("GET", "/api/laundromats/me");
+        return res.json();
+      } catch {
+        return {};
+      }
+    },
+  });
 
   const { data: kpis, isLoading } = useQuery<OwnerKPIs>({
     queryKey: ["/api/vendors/me/kpis"],
@@ -56,9 +71,31 @@ export default function OwnerDashboard() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold">{getGreeting()}, {user?.name || "Owner"}</h1>
-        <p className="text-sm text-muted-foreground">Your laundromat at a glance</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{getGreeting()}, {user?.name || "Owner"}</h1>
+          <p className="text-sm text-muted-foreground">Your laundromat at a glance</p>
+        </div>
+        {vendorInfo && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant={vendorInfo.certified ? "default" : "secondary"}
+                className={`flex items-center gap-1 shrink-0 ${
+                  vendorInfo.certified ? "bg-[#5B4BC4] hover:bg-[#5B4BC4]/90" : ""
+                }`}
+              >
+                <Award className="h-3.5 w-3.5" />
+                {vendorInfo.certified ? "Certified" : "Uncertified"}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[250px] text-xs">
+              {vendorInfo.certified
+                ? "Your laundromat is Offload Certified. You receive a 60-second priority window on incoming dispatch offers before other laundromats."
+                : "Your laundromat is not yet certified. Meet the quality review thresholds to earn Certified status and a 60-second priority window on dispatch offers."}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {k.pending_offers > 0 && (

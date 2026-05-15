@@ -18,6 +18,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DollarSign, Percent, Truck, Scale, History, MapPin, Award, Plus, X, Sparkles } from "lucide-react";
 
+const CANONICAL_DEFAULTS: Record<string, { flatPrice: number; overageRate: number; maxWeight: number }> = {
+  bag_small: { flatPrice: 24.99, overageRate: 2.50, maxWeight: 10 },
+  bag_medium: { flatPrice: 44.99, overageRate: 2.50, maxWeight: 20 },
+  bag_large: { flatPrice: 59.99, overageRate: 2.50, maxWeight: 30 },
+  bag_xl: { flatPrice: 89.99, overageRate: 2.50, maxWeight: 50 },
+  small_bag: { flatPrice: 24.99, overageRate: 2.50, maxWeight: 10 },
+  medium_bag: { flatPrice: 44.99, overageRate: 2.50, maxWeight: 20 },
+  large_bag: { flatPrice: 59.99, overageRate: 2.50, maxWeight: 30 },
+  xl_bag: { flatPrice: 89.99, overageRate: 2.50, maxWeight: 50 },
+};
+
 interface PricingConfigRow {
   id: number;
   key: string;
@@ -306,8 +317,12 @@ function validatePrice(val: string, max = 10000): string | null {
 }
 
 function BagTierRow({ row, toast }: { row: PricingConfigRow; toast: any }) {
-  let parsed: { flatPrice: number; overageRate: number; maxWeight: number } = { flatPrice: 0, overageRate: 0, maxWeight: 0 };
-  try { parsed = JSON.parse(row.value); } catch {}
+  const canonical = CANONICAL_DEFAULTS[row.key] ?? { flatPrice: 0, overageRate: 0, maxWeight: 0 };
+  let parsed: { flatPrice: number; overageRate: number; maxWeight: number } = { ...canonical };
+  try {
+    const val = JSON.parse(row.value);
+    if (val.flatPrice > 0 || val.overageRate > 0 || val.maxWeight > 0) parsed = val;
+  } catch {}
 
   const [flatPrice, setFlatPrice] = useState(String(parsed.flatPrice));
   const [overageRate, setOverageRate] = useState(String(parsed.overageRate));

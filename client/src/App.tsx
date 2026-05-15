@@ -39,6 +39,7 @@ import StripeReconciliationPage from "@/pages/stripe-reconciliation";
 import ServiceAreasPage from "@/pages/service-areas";
 import ServiceAreaRequestsPage from "@/pages/service-area-requests";
 import QACenterPage from "@/pages/qa-center";
+import AuctionsPage from "@/pages/auctions";
 
 // Existing role-based components
 import { DriverDashboard, DriverPickup, DriverDelivery, DriverVehicle } from "@/features/driver";
@@ -55,6 +56,8 @@ import OwnerOrders from "@/features/owner/OwnerOrders";
 import OwnerOrderDetail from "@/features/owner/OwnerOrderDetail";
 import OwnerEmployees from "@/features/owner/OwnerEmployees";
 import OwnerSettings from "@/features/owner/OwnerSettings";
+import OwnerDriversPage from "@/features/owner/OwnerDriversPage";
+import OwnerPricingPage from "@/features/owner/OwnerPricingPage";
 import StaffQueue from "@/features/staff/StaffQueue";
 import StaffOrderDetail from "@/features/staff/StaffOrderDetail";
 
@@ -67,6 +70,7 @@ function SuperAdminRouter() {
       <Route path="/super/laundromats" component={SuperLaundromats} />
       <Route path="/super/laundromats/new" component={SuperLaundromatNew} />
       <Route path="/super/users" component={SuperUsers} />
+      <Route path="/super/auctions" component={AuctionsPage} />
       <Route path="/super/orders" component={OrdersPage} />
       <Route path="/super/orders/:id" component={OrderDetailPage} />
       <Route path="/super/drivers" component={DriversPage} />
@@ -111,6 +115,8 @@ function OwnerRouter() {
       <Route path="/owner/orders" component={OwnerOrders} />
       <Route path="/owner/orders/:id" component={OwnerOrderDetail} />
       <Route path="/owner/employees" component={OwnerEmployees} />
+      <Route path="/owner/drivers" component={OwnerDriversPage} />
+      <Route path="/owner/pricing" component={OwnerPricingPage} />
       <Route path="/owner/settings" component={OwnerSettings} />
       <Route path="/">{() => <Redirect to="/owner/dashboard" />}</Route>
       <Route component={NotFound} />
@@ -177,6 +183,7 @@ function RoleNav({ role }: { role: string }) {
       { label: "Users", href: "#/super/users" },
       { label: "Orders", href: "#/super/orders" },
       { label: "Drivers", href: "#/super/drivers" },
+      { label: "Auctions", href: "#/super/auctions" },
     ],
     admin: [
       { label: "Dashboard", href: "#/super/dashboard" },
@@ -185,11 +192,14 @@ function RoleNav({ role }: { role: string }) {
       { label: "Users", href: "#/super/users" },
       { label: "Orders", href: "#/super/orders" },
       { label: "Drivers", href: "#/super/drivers" },
+      { label: "Auctions", href: "#/super/auctions" },
     ],
     laundromat_owner: [
       { label: "Dashboard", href: "#/owner/dashboard" },
       { label: "Incoming", href: "#/owner/incoming" },
       { label: "Orders", href: "#/owner/orders" },
+      { label: "Drivers", href: "#/owner/drivers" },
+      { label: "Pricing", href: "#/owner/pricing" },
       { label: "Employees", href: "#/owner/employees" },
       { label: "Settings", href: "#/owner/settings" },
     ],
@@ -197,6 +207,8 @@ function RoleNav({ role }: { role: string }) {
       { label: "Dashboard", href: "#/owner/dashboard" },
       { label: "Incoming", href: "#/owner/incoming" },
       { label: "Orders", href: "#/owner/orders" },
+      { label: "Drivers", href: "#/owner/drivers" },
+      { label: "Pricing", href: "#/owner/pricing" },
       { label: "Employees", href: "#/owner/employees" },
       { label: "Settings", href: "#/owner/settings" },
     ],

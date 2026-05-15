@@ -9,6 +9,7 @@ import { Search, Download } from "lucide-react";
 import { Link } from "wouter";
 import { StatusBadge } from "./dashboard";
 import { ADMIN_ORDER_STATUS_OPTIONS } from "@/lib/order-status-map";
+import { humanizeService } from "@/lib/humanize-service";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -127,7 +128,7 @@ export default function OrdersPage() {
                       <td className="py-2.5 pr-3 text-muted-foreground text-xs">{order.vendorName}</td>
                       <td className="py-2.5 pr-3"><StatusBadge status={order.status} /></td>
                       <td className="py-2.5 pr-3">
-                        <Badge variant="outline" className="text-xs capitalize">{order.serviceType}</Badge>
+                        <Badge variant="outline" className="text-xs">{humanizeService(order.serviceType)}</Badge>
                       </td>
                       <td className="py-2.5 pr-3 text-right font-medium">{formatCurrency(order.total)}</td>
                       <td className="py-2.5 text-xs text-muted-foreground">

@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { log } from "./index";
 // Seed data disabled: admin panel now reads production API data.
 import crypto from "crypto";
 import { promisify } from "util";
@@ -14,6 +15,7 @@ interface Session {
   username: string;
   name: string;
   role: string;
+  vendorId: number | null;
   createdAt: number;
 }
 
@@ -152,14 +154,36 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
     return;
   }
 
-  // Enforce admin/manager role
-  if (!["admin", "manager"].includes(session.role)) {
+  // Enforce allowed roles
+  const allowedRoles = ["admin", "super_admin", "manager", "laundromat_owner"];
+  if (!allowedRoles.includes(session.role)) {
     res.status(403).json({ message: "Forbidden: admin access required" });
     return;
   }
 
   // Attach user info to request for downstream use
   (req as any).adminUser = session;
+  next();
+}
+
+function requireVendorScoped(req: Request, res: Response, next: NextFunction): void {
+  const adminUser = (req as any).adminUser as Session | undefined;
+  if (!adminUser) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+  // super_admin and admin bypass scoping
+  if (adminUser.role === "super_admin" || adminUser.role === "admin") {
+    next();
+    return;
+  }
+  // manager and laundromat_owner are scoped to their vendorId
+  const userVendorId = (adminUser as any).vendorId;
+  if (!userVendorId) {
+    res.status(403).json({ message: "Forbidden: no vendor association" });
+    return;
+  }
+  (req as any).scopedVendorId = userVendorId;
   next();
 }
 
@@ -231,8 +255,8 @@ export async function registerRoutes(
       // Successful login — reset rate limit
       resetRateLimit(ip);
 
-      // Only admin and manager roles can access admin panel
-      if (!["admin", "manager"].includes(user.role)) {
+      // Only admin/super_admin/manager/laundromat_owner roles can access admin panel
+      if (!["admin", "super_admin", "manager", "laundromat_owner"].includes(user.role)) {
         res.status(403).json({ message: "Admin access required" });
         return;
       }
@@ -249,6 +273,7 @@ export async function registerRoutes(
         username: user.username,
         name: user.name,
         role: user.role,
+        vendorId: (user as any).vendorId ?? null,
         createdAt: Date.now(),
       });
 
@@ -334,13 +359,13 @@ export async function registerRoutes(
             </div>
             <p style="color:#888;font-size:12px;">This link expires in 1 hour.</p>
           </div>`,
-        }).then(() => console.log(`[Email] Admin password reset sent to ${user.email || email}`))
-          .catch((err: any) => console.error(`[Email] Failed:`, err));
+        }).then(() => log(`Admin password reset sent to user #${user.id}`, "email"))
+          .catch((err: any) => log(`Failed to send reset email: ${err?.message}`, "email"));
       } catch (e) {
-        console.log(`[Email] Resend not available`);
+        log("Resend not available", "email");
       }
     } else {
-      console.log(`[Email] Would send admin password reset to ${user.email || email} (no RESEND_API_KEY)`);
+      log(`Would send admin password reset to user #${user.id} (no RESEND_API_KEY)`, "email");
     }
 
     res.json(successMsg);
@@ -400,9 +425,20 @@ export async function registerRoutes(
     res.json(await storage.getCustomers());
   });
 
-  app.get("/api/customers/:id", requireAdmin, async (req, res) => {
+  app.get("/api/customers/:id", requireAdmin, requireVendorScoped, async (req, res) => {
     const customer = await storage.getCustomer(Number(String(req.params.id)));
     if (!customer) return res.status(404).json({ message: "Customer not found" });
+    // Vendor-scoped users can only view customers who have ordered from their vendor
+    const scopedVendorId = (req as any).scopedVendorId;
+    if (scopedVendorId) {
+      const allOrders = await storage.getOrders();
+      const hasOrderFromVendor = allOrders.some(
+        o => o.customerId === customer.id && o.vendorId === scopedVendorId
+      );
+      if (!hasOrderFromVendor) {
+        return res.status(403).json({ message: "Forbidden: customer not associated with your vendor" });
+      }
+    }
     res.json(customer);
   });
 
@@ -444,9 +480,13 @@ export async function registerRoutes(
     res.json(await storage.getVendors());
   });
 
-  app.get("/api/vendors/:id", requireAdmin, async (req, res) => {
+  app.get("/api/vendors/:id", requireAdmin, requireVendorScoped, async (req, res) => {
     const vendor = await storage.getVendor(Number(String(req.params.id)));
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    const scopedVendorId = (req as any).scopedVendorId;
+    if (scopedVendorId && vendor.id !== scopedVendorId) {
+      return res.status(403).json({ message: "Forbidden: vendor access denied" });
+    }
     res.json(vendor);
   });
 
@@ -489,8 +529,14 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/orders/:id", requireAdmin, async (req, res) => {
-    const updated = await storage.updateOrder(Number(String(req.params.id)), normalizeOrderStatusPatch(req.body));
+  app.patch("/api/orders/:id", requireAdmin, requireVendorScoped, async (req, res) => {
+    const order = await storage.getOrder(Number(String(req.params.id)));
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    const scopedVendorId = (req as any).scopedVendorId;
+    if (scopedVendorId && order.vendorId !== scopedVendorId) {
+      return res.status(403).json({ message: "Forbidden: order does not belong to your vendor" });
+    }
+    const updated = await storage.updateOrder(order.id, normalizeOrderStatusPatch(req.body));
     if (!updated) return res.status(404).json({ message: "Order not found" });
     res.json(updated);
   });
@@ -636,10 +682,11 @@ export async function registerRoutes(
       { range: "$3000+", count: 0 },
     ];
     allCustomers.forEach(c => {
-      if (c.totalSpend < 100) clvBuckets[0].count++;
-      else if (c.totalSpend < 500) clvBuckets[1].count++;
-      else if (c.totalSpend < 1500) clvBuckets[2].count++;
-      else if (c.totalSpend < 3000) clvBuckets[3].count++;
+      const spent = c.totalSpent ?? 0;
+      if (spent < 100) clvBuckets[0].count++;
+      else if (spent < 500) clvBuckets[1].count++;
+      else if (spent < 1500) clvBuckets[2].count++;
+      else if (spent < 3000) clvBuckets[3].count++;
       else clvBuckets[4].count++;
     });
 
@@ -647,9 +694,9 @@ export async function registerRoutes(
     // We don't track website visits in this DB, so omit that stage rather than
     // making up a number.
     const totalUsers = allCustomers.length;
-    const usersWithFirstOrder = allCustomers.filter(c => (c.orderCount || 0) >= 1).length;
-    const repeatCustomers = allCustomers.filter(c => (c.orderCount || 0) >= 2).length;
-    const subscribers = allCustomers.filter(c => !!c.subscriptionType).length;
+    const usersWithFirstOrder = allCustomers.filter(c => (c.totalOrders || 0) >= 1).length;
+    const repeatCustomers = allCustomers.filter(c => (c.totalOrders || 0) >= 2).length;
+    const subscribers = allCustomers.filter(c => !!c.subscriptionTier).length;
     const funnel = [
       { stage: "Sign Ups", count: totalUsers },
       { stage: "First Order", count: usersWithFirstOrder },

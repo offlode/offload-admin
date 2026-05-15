@@ -15,6 +15,24 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Clock, MapPin, Package, DollarSign, User, Truck, Store, RotateCcw } from "lucide-react";
 import { StatusBadge } from "./dashboard";
 import { ADMIN_ORDER_STATUS_OPTIONS } from "@/lib/order-status-map";
+import { humanizeService } from "@/lib/humanize-service";
+import { useAuth } from "@/components/auth-provider";
+
+const FSM_STATES = [
+  { key: "order_placed", label: "Order Placed" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "driver_assigned", label: "Driver Assigned" },
+  { key: "picked_up", label: "Picked Up" },
+  { key: "at_facility", label: "At Facility" },
+  { key: "washing", label: "Washing" },
+  { key: "wash_complete", label: "Wash Complete" },
+  { key: "folded_packaged", label: "Folded & Packaged" },
+  { key: "final_weight_verified", label: "Final Weight Verified" },
+  { key: "ready_for_delivery", label: "Ready for Delivery" },
+  { key: "out_for_delivery", label: "Out for Delivery" },
+  { key: "delivered", label: "Delivered" },
+  { key: "completed", label: "Completed" },
+] as const;
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -23,6 +41,7 @@ function formatCurrency(n: number) {
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  const { user: authUser } = useAuth();
   const { data: order, isLoading } = useQuery<any>({ queryKey: ["/api/orders", id] });
   const { data: drivers = [] } = useQuery<any[]>({ queryKey: ["/api/drivers"] });
   const { data: vendors = [] } = useQuery<any[]>({ queryKey: ["/api/vendors"] });
@@ -132,7 +151,7 @@ export default function OrderDetailPage() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Service</span>
-              <Badge variant="outline" className="capitalize">{order.serviceType || "—"}</Badge>
+              <Badge variant="outline">{humanizeService(order.serviceType)}</Badge>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Items</span>
@@ -285,11 +304,11 @@ export default function OrderDetailPage() {
         </Card>
       )}
 
-      {/* Status Timeline */}
+      {/* 13-State FSM Timeline */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Clock className="h-4 w-4" /> Status Timeline
+            <Clock className="h-4 w-4" /> Order Progress
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -314,20 +333,66 @@ export default function OrderDetailPage() {
             {!order.driverId && (
               <span className="text-xs text-amber-600 font-medium">No driver assigned — status advances will be blocked</span>
             )}
+            {authUser?.role === "super_admin" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  // TODO: Call sandbox endpoint (e.g. POST /api/test/orders/:id/advance) when available
+                  const currentIdx = FSM_STATES.findIndex(s => s.key === order.status);
+                  if (currentIdx >= 0 && currentIdx < FSM_STATES.length - 1) {
+                    const nextStatus = FSM_STATES[currentIdx + 1].key;
+                    updateMutation.mutate({ status: nextStatus });
+                  } else {
+                    toast({ title: "Cannot advance", description: "Order is at the final state or has an unrecognized status.", variant: "destructive" });
+                  }
+                }}
+                data-testid="button-simulate-driver"
+              >
+                <Truck className="h-3.5 w-3.5 mr-1" /> Simulate Driver
+              </Button>
+            )}
           </div>
-          <div className="space-y-3">
-            {order.statusHistory?.map((h: any, i: number) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium capitalize">{h.status.replace(/_/g, " ")}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(h.changedAt).toLocaleString()} · by {h.changedBy}
-                  </p>
-                  {h.note && <p className="text-xs text-muted-foreground mt-0.5">{h.note}</p>}
+          <div className="space-y-1 mb-4">
+            {FSM_STATES.map((state, idx) => {
+              const currentIdx = FSM_STATES.findIndex(s => s.key === order.status);
+              const isPast = idx < currentIdx;
+              const isCurrent = idx === currentIdx;
+              return (
+                <div key={state.key} className="flex items-center gap-3 py-1">
+                  <div className={`w-3 h-3 rounded-full shrink-0 border-2 ${
+                    isCurrent ? "bg-[#5B4BC4] border-[#5B4BC4]" :
+                    isPast ? "bg-[#5B4BC4]/40 border-[#5B4BC4]/40" :
+                    "bg-transparent border-muted-foreground/30"
+                  }`} />
+                  <span className={`text-sm ${
+                    isCurrent ? "font-semibold text-[#5B4BC4]" :
+                    isPast ? "text-muted-foreground" :
+                    "text-muted-foreground/50"
+                  }`}>
+                    {state.label}
+                  </span>
+                  {isCurrent && <Badge variant="outline" className="text-xs ml-1">Current</Badge>}
                 </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+          <div className="border-t pt-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Status History</p>
+            <div className="space-y-3">
+              {order.statusHistory?.map((h: any, i: number) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium capitalize">{h.status?.replace(/_/g, " ") ?? h.toStatus?.replace(/_/g, " ")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(h.changedAt || h.timestamp).toLocaleString()} · by {h.changedBy || h.actorRole || "system"}
+                    </p>
+                    {(h.note || h.notes) && <p className="text-xs text-muted-foreground mt-0.5">{h.note || h.notes}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
