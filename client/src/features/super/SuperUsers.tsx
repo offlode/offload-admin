@@ -35,13 +35,11 @@ export default function SuperUsers() {
   const { data: users, isLoading } = useQuery<UserRecord[]>({
     queryKey: ["/api/admin/users", search],
     queryFn: async () => {
-      try {
-        const q = search ? `?q=${encodeURIComponent(search)}` : "";
-        const res = await apiRequest("GET", `/api/admin/users${q}`);
-        return res.json();
-      } catch {
-        return [];
-      }
+      const q = search ? `?q=${encodeURIComponent(search)}` : "";
+      const res = await apiRequest("GET", `/api/admin/users${q}`);
+      const data = await res.json();
+      // Handle both array and paginated { data: [...] } response shapes
+      return Array.isArray(data) ? data : (data?.data ?? []);
     },
   });
 
