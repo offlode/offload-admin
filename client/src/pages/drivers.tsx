@@ -3,16 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { Star, Truck } from "lucide-react";
+import { DRIVER_STATUS_COLORS } from "@/features/shared/constants";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
-
-const statusColors: Record<string, string> = {
-  available: "default",
-  busy: "secondary",
-  offline: "outline",
-};
 
 export default function DriversPage() {
   const { data: drivers = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/drivers"] });
@@ -88,7 +83,7 @@ export default function DriversPage() {
                       <p className="text-xs text-muted-foreground">{vehicleType} · {licensePlate}</p>
                     </td>
                     <td className="py-2.5 pr-3">
-                      <Badge variant={(statusColors[status] || "outline") as any} className="text-xs capitalize">{status}</Badge>
+                      <Badge variant={(DRIVER_STATUS_COLORS[status] || "outline") as any} className="text-xs capitalize">{status}</Badge>
                     </td>
                     <td className="py-2.5 pr-3">
                       <div className="flex items-center gap-1">

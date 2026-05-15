@@ -12,22 +12,8 @@ import {
 } from "recharts";
 import { Link } from "wouter";
 import { CANONICAL_TO_ADMIN_ORDER_STATUS } from "@/lib/order-status-map";
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "hsl(43, 74%, 49%)",
-  pickup_scheduled: "hsl(220, 70%, 50%)",
-  scheduled: "hsl(220, 70%, 50%)",
-  picked_up: "hsl(248, 51%, 53%)",
-  at_vendor: "hsl(280, 60%, 50%)",
-  at_facility: "hsl(280, 60%, 50%)",
-  processing: "hsl(200, 70%, 50%)",
-  ready: "hsl(270, 95%, 75%)",
-  ready_for_delivery: "hsl(270, 95%, 75%)",
-  out_for_delivery: "hsl(30, 80%, 50%)",
-  driver_en_route_delivery: "hsl(30, 80%, 50%)",
-  delivered: "hsl(140, 60%, 40%)",
-  cancelled: "hsl(0, 70%, 50%)",
-};
+import { STATUS_CHART_COLORS } from "@/features/shared/constants";
+import { KPICard } from "@/features/shared/components";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -59,12 +45,12 @@ export default function Dashboard() {
           ))
         ) : (
           <>
-            <KPICard icon={DollarSign} label="Total Revenue" value={formatCurrency(kpis?.totalRevenue || 0)} />
-            <KPICard icon={ShoppingCart} label="Active Orders" value={kpis?.activeOrders || 0} />
-            <KPICard icon={Users} label="Active Customers" value={kpis?.activeCustomers || 0} />
-            <KPICard icon={Truck} label="Active Drivers" value={kpis?.activeDrivers || 0} />
-            <KPICard icon={TrendingUp} label="Avg Order Value" value={formatCurrency(kpis?.avgOrderValue || 0)} />
-            <KPICard icon={Percent} label="Platform Fees" value={formatCurrency(kpis?.platformFeeRevenue || 0)} />
+            <KPICard icon={<DollarSign className="h-4 w-4" />} title="Total Revenue" value={formatCurrency(kpis?.totalRevenue || 0)} />
+            <KPICard icon={<ShoppingCart className="h-4 w-4" />} title="Active Orders" value={kpis?.activeOrders || 0} />
+            <KPICard icon={<Users className="h-4 w-4" />} title="Active Customers" value={kpis?.activeCustomers || 0} />
+            <KPICard icon={<Truck className="h-4 w-4" />} title="Active Drivers" value={kpis?.activeDrivers || 0} />
+            <KPICard icon={<TrendingUp className="h-4 w-4" />} title="Avg Order Value" value={formatCurrency(kpis?.avgOrderValue || 0)} />
+            <KPICard icon={<Percent className="h-4 w-4" />} title="Platform Fees" value={formatCurrency(kpis?.platformFeeRevenue || 0)} />
           </>
         )}
       </div>
@@ -179,7 +165,7 @@ export default function Dashboard() {
                     paddingAngle={2}
                   >
                     {statusData.map((entry, i) => (
-                      <Cell key={i} fill={STATUS_COLORS[entry.status] || "#888"} />
+                      <Cell key={i} fill={STATUS_CHART_COLORS[entry.status] || "#888"} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -245,22 +231,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function KPICard({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Icon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{label}</span>
-        </div>
-        <p className="text-lg font-semibold tracking-tight" data-testid={`text-kpi-${label.toLowerCase().replace(/\s/g, '-')}`}>
-          {value}
-        </p>
-      </CardContent>
-    </Card>
   );
 }
 

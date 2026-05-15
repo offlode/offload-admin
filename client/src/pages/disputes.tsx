@@ -3,20 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { AlertTriangle } from "lucide-react";
-
-const priorityColors: Record<string, string> = {
-  low: "secondary",
-  medium: "secondary",
-  high: "default",
-  critical: "destructive",
-};
-
-const statusColors: Record<string, string> = {
-  open: "destructive",
-  investigating: "default",
-  resolved: "secondary",
-  escalated: "destructive",
-};
+import { DISPUTE_STATUS_COLORS, DISPUTE_PRIORITY_COLORS } from "@/features/shared/constants";
 
 export default function DisputesPage() {
   const { data: disputes = [] } = useQuery<any[]>({ queryKey: ["/api/disputes"] });
@@ -81,10 +68,10 @@ export default function DisputesPage() {
                       <Badge variant="outline" className="text-xs capitalize">{d.type.replace(/_/g, " ")}</Badge>
                     </td>
                     <td className="py-2.5 pr-3">
-                      <Badge variant={priorityColors[d.priority] as any} className="text-xs capitalize">{d.priority}</Badge>
+                      <Badge variant={DISPUTE_PRIORITY_COLORS[d.priority] as any} className="text-xs capitalize">{d.priority}</Badge>
                     </td>
                     <td className="py-2.5 pr-3">
-                      <Badge variant={statusColors[d.status] as any} className="text-xs capitalize">{d.status}</Badge>
+                      <Badge variant={DISPUTE_STATUS_COLORS[d.status] as any} className="text-xs capitalize">{d.status}</Badge>
                     </td>
                     <td className="py-2.5 text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleDateString()}</td>
                   </tr>
